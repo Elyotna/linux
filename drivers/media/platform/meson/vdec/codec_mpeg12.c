@@ -45,36 +45,16 @@ struct codec_mpeg12 {
 	/* Buffer for the MPEG1/2 Workspace */
 	void      *workspace_vaddr;
 	dma_addr_t workspace_paddr;
-
-	/* Housekeeping thread for recycling buffers into the hardware */
-	struct task_struct *buffers_thread;
 };
 
-static int codec_mpeg12_buffers_thread(void *data)
+static int codec_mpeg12_can_recycle(struct vdec_core *core)
 {
-	struct vdec_buffer *tmp;
-	struct vdec_session *sess = data;
-	struct vdec_core *core = sess->core;;
+	return !readl_relaxed(core->dos_base + MREG_BUFFERIN);
+}
 
-	while (!kthread_should_stop()) {
-		mutex_lock(&sess->bufs_recycle_lock);
-		while (!list_empty(&sess->bufs_recycle) &&
-		       !readl_relaxed(core->dos_base + MREG_BUFFERIN))
-		{
-			tmp = list_first_entry(&sess->bufs_recycle, struct vdec_buffer, list);
-
-			/* Tell the decoder he can recycle this buffer */
-			writel_relaxed(tmp->index + 1, core->dos_base + MREG_BUFFERIN);
-
-			list_del(&tmp->list);
-			kfree(tmp);
-		}
-		mutex_unlock(&sess->bufs_recycle_lock);
-
-		usleep_range(5000, 10000);
-	}
-
-	return 0;
+static void codec_mpeg12_recycle(struct vdec_core *core, u32 buf_idx)
+{
+	writel_relaxed(buf_idx + 1, core->dos_base + MREG_BUFFERIN);
 }
 
 static int codec_mpeg12_start(struct vdec_session *sess) {
@@ -120,8 +100,6 @@ static int codec_mpeg12_start(struct vdec_session *sess) {
 	/* Enable NV21 */
 	writel_relaxed(readl_relaxed(core->dos_base + MDEC_PIC_DC_CTRL) | (1 << 17), core->dos_base + MDEC_PIC_DC_CTRL);
 
-	mpeg12->buffers_thread = kthread_run(codec_mpeg12_buffers_thread, sess, "buffers_done");
-
 	return 0;
 
 free_mpeg12:
@@ -133,8 +111,6 @@ static int codec_mpeg12_stop(struct vdec_session *sess)
 {
 	struct codec_mpeg12 *mpeg12 = sess->priv;
 	struct vdec_core *core = sess->core;
-
-	kthread_stop(mpeg12->buffers_thread);
 
 	if (mpeg12->workspace_vaddr) {
 		dma_free_coherent(core->dev, SIZE_WORKSPACE, mpeg12->workspace_vaddr, mpeg12->workspace_paddr);
@@ -178,6 +154,7 @@ struct vdec_codec_ops codec_mpeg12_ops = {
 	.start = codec_mpeg12_start,
 	.stop = codec_mpeg12_stop,
 	.isr = codec_mpeg12_isr,
-	.notify_dst_buffer = vdec_queue_recycle,
+	.can_recycle = codec_mpeg12_can_recycle,
+	.recycle = codec_mpeg12_recycle,
 };
 

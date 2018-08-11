@@ -33,40 +33,14 @@
 
 #define DOS_SW_RESET0		0xfc00
 
-struct codec_mjpeg {
-	/* Housekeeping thread for marking buffers to DONE
-	 * and recycling them into the hardware
-	 */
-	struct task_struct *buffers_thread;
-};
-
-static int codec_mjpeg_buffers_thread(void *data)
+static int codec_mjpeg_can_recycle(struct vdec_core *core)
 {
-	struct vdec_buffer *tmp;
-	struct vdec_session *sess = data;
-	struct vdec_core *core = sess->core;;
+	return !readl_relaxed(core->dos_base + MREG_TO_AMRISC);
+}
 
-	while (!kthread_should_stop()) {
-		mutex_lock(&sess->bufs_recycle_lock);
-		while (!list_empty(&sess->bufs_recycle) &&
-		       !readl_relaxed(core->dos_base + MREG_TO_AMRISC))
-		{
-			tmp = list_first_entry(&sess->bufs_recycle, struct vdec_buffer, list);
-
-			/* Tell the decoder he can recycle this buffer */
-			writel_relaxed(tmp->index + 1, core->dos_base + MREG_TO_AMRISC);
-
-			dev_dbg(core->dev, "Buffer %d recycled\n", tmp->index);
-
-			list_del(&tmp->list);
-			kfree(tmp);
-		}
-		mutex_unlock(&sess->bufs_recycle_lock);
-
-		usleep_range(5000, 10000);
-	}
-
-	return 0;
+static void codec_mjpeg_recycle(struct vdec_core *core, u32 buf_idx)
+{
+	writel_relaxed(buf_idx + 1, core->dos_base + MREG_TO_AMRISC);
 }
 
 /* 4 point triangle */
@@ -131,13 +105,6 @@ static void codec_mjpeg_init_scaler(struct vdec_core *core)
 static int codec_mjpeg_start(struct vdec_session *sess)
 {
 	struct vdec_core *core = sess->core;
-	struct codec_mjpeg *mjpeg = sess->priv;
-
-	mjpeg = kzalloc(sizeof(*mjpeg), GFP_KERNEL);
-	if (!mjpeg)
-		return -ENOMEM;
-
-	sess->priv = mjpeg;
 
 	writel_relaxed((1 << 7) | (1 << 6), core->dos_base + DOS_SW_RESET0);
 	writel_relaxed(0, core->dos_base + DOS_SW_RESET0);
@@ -159,20 +126,11 @@ static int codec_mjpeg_start(struct vdec_session *sess)
 	/* Enable 2-plane output */
 	writel_relaxed(readl_relaxed(core->dos_base + MDEC_PIC_DC_CTRL) | (1 << 17), core->dos_base + MDEC_PIC_DC_CTRL);
 
-	mjpeg->buffers_thread = kthread_run(codec_mjpeg_buffers_thread, sess, "buffers_done");
-
 	return 0;
 }
 
 static int codec_mjpeg_stop(struct vdec_session *sess)
 {
-	struct codec_mjpeg *mjpeg = sess->priv;
-
-	kthread_stop(mjpeg->buffers_thread);
-
-	kfree(mjpeg);
-	sess->priv = 0;
-
 	return 0;
 }
 
@@ -199,5 +157,6 @@ struct vdec_codec_ops codec_mjpeg_ops = {
 	.start = codec_mjpeg_start,
 	.stop = codec_mjpeg_stop,
 	.isr = codec_mjpeg_isr,
-	.notify_dst_buffer = vdec_queue_recycle,
+	.can_recycle = codec_mjpeg_can_recycle,
+	.recycle = codec_mjpeg_recycle,
 };

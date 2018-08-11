@@ -67,6 +67,8 @@ struct vdec_codec_ops {
 	int (*stop)(struct vdec_session *sess);
 	int (*load_extended_firmware)(struct vdec_session *sess, const u8 *data, u32 len);
 	u32 (*num_pending_bufs)(struct vdec_session *sess);
+	int (*can_recycle)(struct vdec_core *core);
+	void (*recycle)(struct vdec_core *core, u32 buf_idx);
 	void (*notify_dst_buffer)(struct vdec_session *sess, struct vb2_buffer *vb);
 	irqreturn_t (*isr)(struct vdec_session *sess);
 	irqreturn_t (*threaded_isr)(struct vdec_session *sess);
@@ -132,6 +134,8 @@ struct vdec_session {
 	/* Buffers that need to be recycled by the HW */
 	struct list_head bufs_recycle;
 	struct mutex bufs_recycle_lock;
+	/* Thread for recycling buffers into the hardware */
+	struct task_struct *recycle_thread;
 	
 	/* Buffers queued into the HW */
 	struct list_head bufs;

@@ -119,5 +119,5 @@
 };
 
 &vdec {
-	compatible = "amlogic,meson-gxm-vdec";
+	compatible = "amlogic,gxm-vdec";
 };

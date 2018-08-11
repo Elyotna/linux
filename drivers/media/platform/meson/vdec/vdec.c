@@ -45,6 +45,39 @@ u32 vdec_get_output_size(struct vdec_session *sess)
 	return get_output_size(sess->width, sess->height);
 }
 
+static int vdec_codec_needs_recycle(struct vdec_session *sess)
+{
+	struct vdec_codec_ops *codec_ops = sess->fmt_out->codec_ops;
+	return codec_ops->can_recycle && codec_ops->recycle;
+}
+
+static int vdec_recycle_thread(void *data)
+{
+	struct vdec_session *sess = data;
+	struct vdec_core *core = sess->core;
+	struct vdec_codec_ops *codec_ops = sess->fmt_out->codec_ops;
+	struct vdec_buffer *tmp;
+
+	while (!kthread_should_stop()) {
+		mutex_lock(&sess->bufs_recycle_lock);
+		while (!list_empty(&sess->bufs_recycle) &&
+		       codec_ops->can_recycle(core))
+		{
+			tmp = list_first_entry(&sess->bufs_recycle,
+					       struct vdec_buffer, list);
+			codec_ops->recycle(core, tmp->index);
+			dev_dbg(core->dev, "Buffer %d recycled\n", tmp->index);
+			list_del(&tmp->list);
+			kfree(tmp);
+		}
+		mutex_unlock(&sess->bufs_recycle_lock);
+
+		usleep_range(5000, 10000);
+	}
+
+	return 0;
+}
+
 static int vdec_poweron(struct vdec_session *sess)
 {
 	int ret;
@@ -143,17 +176,16 @@ static void vdec_vb2_buf_queue(struct vb2_buffer *vb)
 	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
 	struct vdec_session *sess = vb2_get_drv_priv(vb->vb2_queue);
 	struct v4l2_m2m_ctx *m2m_ctx = sess->m2m_ctx;
-	struct vdec_codec_ops *codec_ops = sess->fmt_out->codec_ops;
 
 	mutex_lock(&sess->lock);
 	v4l2_m2m_buf_queue(m2m_ctx, vbuf);
 
-	if (!(sess->streamon_out & sess->streamon_cap))
+	if (!sess->streamon_out || !sess->streamon_cap)
 		goto unlock;
-	
+
 	if (vb->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE &&
-	    codec_ops->notify_dst_buffer)
-		codec_ops->notify_dst_buffer(sess, vb);
+	    vdec_codec_needs_recycle(sess))
+		vdec_queue_recycle(sess, vb);
 
 	schedule_work(&sess->esparser_queue_work);
 unlock:
@@ -173,15 +205,17 @@ static int vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 	else
 		sess->streamon_cap = 1;
 
-	if (!(sess->streamon_out & sess->streamon_cap)) {
+	if (!sess->streamon_out || !sess->streamon_cap) {
 		mutex_unlock(&sess->lock);
 		return 0;
 	}
 
 	sess->vififo_size = SIZE_VIFIFO;
-	sess->vififo_vaddr = dma_alloc_coherent(sess->core->dev, sess->vififo_size, &sess->vififo_paddr, GFP_KERNEL);
+	sess->vififo_vaddr =
+		dma_alloc_coherent(sess->core->dev, sess->vififo_size,
+				   &sess->vififo_paddr, GFP_KERNEL);
 	if (!sess->vififo_vaddr) {
-		printk("Failed to request VIFIFO buffer\n");
+		dev_err(sess->core->dev, "Failed to request VIFIFO buffer\n");
 		ret = -ENOMEM;
 		goto bufs_done;
 	}
@@ -192,17 +226,22 @@ static int vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 		goto vififo_free;
 
 	sess->sequence_cap = 0;
+	if (vdec_codec_needs_recycle(sess))
+		sess->recycle_thread = kthread_run(vdec_recycle_thread, sess,
+						   "vdec_recycle");
 	mutex_unlock(&sess->lock);
 
 	return 0;
 
 vififo_free:
-	dma_free_coherent(sess->core->dev, sess->vififo_size, sess->vififo_vaddr, sess->vififo_paddr);
+	dma_free_coherent(sess->core->dev, sess->vififo_size,
+			  sess->vififo_vaddr, sess->vififo_paddr);
 bufs_done:
 	while ((buf = v4l2_m2m_src_buf_remove(sess->m2m_ctx)))
 		v4l2_m2m_buf_done(buf, VB2_BUF_STATE_QUEUED);
 	while ((buf = v4l2_m2m_dst_buf_remove(sess->m2m_ctx)))
 		v4l2_m2m_buf_done(buf, VB2_BUF_STATE_QUEUED);
+
 	if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 		sess->streamon_out = 0;
 	else
@@ -218,7 +257,9 @@ void vdec_stop_streaming(struct vb2_queue *q)
 
 	mutex_lock(&sess->lock);
 
-	if (sess->streamon_out & sess->streamon_cap) {
+	if (sess->streamon_out && sess->streamon_cap) {
+		if (vdec_codec_needs_recycle(sess))
+			kthread_stop(sess->recycle_thread);
 		vdec_poweroff(sess);
 		dma_free_coherent(sess->core->dev, sess->vififo_size, sess->vififo_vaddr, sess->vififo_paddr);
 		INIT_LIST_HEAD(&sess->bufs);
@@ -866,11 +907,11 @@ static irqreturn_t vdec_threaded_isr(int irq, void *data)
 }
 
 static const struct of_device_id vdec_dt_match[] = {
-	{ .compatible = "amlogic,meson-gxbb-vdec",
+	{ .compatible = "amlogic,gxbb-vdec",
 	  .data = &vdec_platform_gxbb },
-	{ .compatible = "amlogic,meson-gxm-vdec",
+	{ .compatible = "amlogic,gxm-vdec",
 	  .data = &vdec_platform_gxm },
-	{ .compatible = "amlogic,meson-gxl-vdec",
+	{ .compatible = "amlogic,gxl-vdec",
 	  .data = &vdec_platform_gxl },
 	{}
 };
@@ -1020,7 +1061,6 @@ static struct platform_driver meson_vdec_driver = {
 };
 module_platform_driver(meson_vdec_driver);
 
-MODULE_ALIAS("platform:meson-video-decoder");
 MODULE_DESCRIPTION("Meson video decoder driver for GXBB/GXL/GXM");
 MODULE_AUTHOR("Maxime Jourdan <maxi.jourdan@wanadoo.fr>");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");

@@ -72,51 +72,23 @@ struct codec_h264 {
 	/* Buffer for parsed SEI data ; > M8 ? */
 	void      *sei_vaddr;
 	dma_addr_t sei_paddr;
-
-	/* Housekeeping thread for recycling buffers into the hardware */
-	struct task_struct *buffers_thread;
 };
 
-static void codec_h264_recycle_first(struct vdec_session *sess)
+static int codec_h264_can_recycle(struct vdec_core *core)
 {
-	struct vdec_core *core = sess->core;
-	struct vdec_buffer *tmp;
+	return !readl_relaxed(core->dos_base + AV_SCRATCH_7) ||
+	       !readl_relaxed(core->dos_base + AV_SCRATCH_8);
+}
 
-	tmp = list_first_entry(&sess->bufs_recycle, struct vdec_buffer, list);
-
+static void codec_h264_recycle(struct vdec_core *core, u32 buf_idx)
+{
 	/* Tell the decoder he can recycle this buffer.
 	 * AV_SCRATCH_8 serves the same purpose.
 	 */
 	if (!readl_relaxed(core->dos_base + AV_SCRATCH_7))
-		writel_relaxed(tmp->index + 1, core->dos_base + AV_SCRATCH_7);
+		writel_relaxed(buf_idx + 1, core->dos_base + AV_SCRATCH_7);
 	else
-		writel_relaxed(tmp->index + 1, core->dos_base + AV_SCRATCH_8);
-
-	dev_dbg(core->dev, "Buffer %d recycled\n", tmp->index);
-
-	list_del(&tmp->list);
-	kfree(tmp);
-}
-
-static int codec_h264_buffers_thread(void *data)
-{
-	struct vdec_session *sess = data;
-	struct vdec_core *core = sess->core;
-
-	while (!kthread_should_stop()) {
-		mutex_lock(&sess->bufs_recycle_lock);
-		while (!list_empty(&sess->bufs_recycle) &&
-		       (!readl_relaxed(core->dos_base + AV_SCRATCH_7) ||
-		        !readl_relaxed(core->dos_base + AV_SCRATCH_8)))
-		{
-			codec_h264_recycle_first(sess);
-		}
-		mutex_unlock(&sess->bufs_recycle_lock);
-
-		usleep_range(5000, 10000);
-	}
-
-	return 0;
+		writel_relaxed(buf_idx + 1, core->dos_base + AV_SCRATCH_8);
 }
 
 static int codec_h264_start(struct vdec_session *sess) {
@@ -183,9 +155,6 @@ static int codec_h264_start(struct vdec_session *sess) {
 	writel_relaxed(0, core->dos_base + DOS_SW_RESET0);
 
 	readl_relaxed(core->dos_base + DOS_SW_RESET0);
-	
-	h264->buffers_thread = kthread_run(codec_h264_buffers_thread, sess, "buffers_done");
-	
 	return 0;
 }
 
@@ -193,8 +162,6 @@ static int codec_h264_stop(struct vdec_session *sess)
 {
 	struct codec_h264 *h264 = sess->priv;
 	struct vdec_core *core = sess->core;
-
-	kthread_stop(h264->buffers_thread);
 
 	if (h264->ext_fw_vaddr)
 		dma_free_coherent(core->dev, SIZE_EXT_FW, h264->ext_fw_vaddr, h264->ext_fw_paddr);
@@ -352,7 +319,7 @@ static irqreturn_t codec_h264_threaded_isr(struct vdec_session *sess)
 	switch (cmd) {
 	case 1:
 		codec_h264_set_param(sess);
-		goto end;
+		break;
 	case 2:
 		codec_h264_frames_ready(sess, status);
 		break;
@@ -374,9 +341,9 @@ static irqreturn_t codec_h264_threaded_isr(struct vdec_session *sess)
 		break;
 	}
 
-	writel_relaxed(0, core->dos_base + AV_SCRATCH_0);
+	if (cmd > 1)
+		writel_relaxed(0, core->dos_base + AV_SCRATCH_0);
 
-end:
 	/* Decoder has some SEI data for us ; ignore */
 	if (readl_relaxed(core->dos_base + AV_SCRATCH_J) & SEI_DATA_READY)
 		writel_relaxed(0, core->dos_base + AV_SCRATCH_J);
@@ -402,6 +369,7 @@ struct vdec_codec_ops codec_h264_ops = {
 	.load_extended_firmware = codec_h264_load_extended_firmware,
 	.isr = codec_h264_isr,
 	.threaded_isr = codec_h264_threaded_isr,
-	.notify_dst_buffer = vdec_queue_recycle,
+	.can_recycle = codec_h264_can_recycle,
+	.recycle = codec_h264_recycle,
 };
 

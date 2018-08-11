@@ -217,12 +217,8 @@ static int esparser_queue(struct vdec_session *sess, struct vb2_v4l2_buffer *vbu
 	num_dst_bufs += v4l2_m2m_num_dst_bufs_ready(sess->m2m_ctx);
 
 	if (esparser_vififo_get_free_space(sess) < payload_size ||
-	    atomic_read(&sess->esparser_queued_bufs) >= num_dst_bufs) {
-		dev_dbg(core->dev, "esparser: queue full. %u/%u\n",
-			atomic_read(&sess->esparser_queued_bufs),
-			num_dst_bufs);
+	    atomic_read(&sess->esparser_queued_bufs) >= num_dst_bufs)
 		return -EAGAIN;
-	}
 
 	v4l2_m2m_src_buf_remove_by_buf(sess->m2m_ctx, vbuf);
 	vdec_add_ts_reorder(sess, vb->timestamp);
@@ -233,7 +229,7 @@ static int esparser_queue(struct vdec_session *sess, struct vb2_v4l2_buffer *vbu
 	 * or buffer decoding errors, as it looks like the ESPARSER
 	 * gets confused with too much data thrown in too quickly.
 	 */
-	usleep_range(5000, 5000);
+	usleep_range(5000, 10000);
 
 	pad_size = esparser_pad_start_code(vb);
 	ret = esparser_write_data(core, phy, payload_size + pad_size);
@@ -243,7 +239,7 @@ static int esparser_queue(struct vdec_session *sess, struct vb2_v4l2_buffer *vbu
 		vbuf->field = V4L2_FIELD_NONE;
 		v4l2_m2m_buf_done(vbuf, VB2_BUF_STATE_DONE);
 	} else if (ret <= 0) {
-		printk("ESPARSER input parsing error\n");
+		dev_warn(core->dev, "esparser: input parsing error\n");
 		vdec_remove_ts(sess, vb->timestamp);
 		v4l2_m2m_buf_done(vbuf, VB2_BUF_STATE_ERROR);
 		writel_relaxed(0, core->esparser_base + PARSER_FETCH_CMD);
@@ -315,7 +311,6 @@ int esparser_init(struct platform_device *pdev, struct vdec_core *core)
 	int ret;
 	int irq;
 
-	/* TODO: name the IRQs */
 	irq = platform_get_irq(pdev, 1);
 	if (irq < 0) {
 		dev_err(dev, "Failed getting ESPARSER IRQ from dtb\n");
