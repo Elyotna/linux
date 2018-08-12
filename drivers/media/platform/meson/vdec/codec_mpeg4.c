@@ -150,9 +150,6 @@ static int codec_mpeg4_stop(struct vdec_session *sess)
 		mpeg4->workspace_vaddr = 0;
 	}
 
-	kfree(mpeg4);
-	sess->priv = 0;
-
 	return 0;
 }
 

@@ -264,6 +264,10 @@ void vdec_stop_streaming(struct vb2_queue *q)
 		dma_free_coherent(sess->core->dev, sess->vififo_size, sess->vififo_vaddr, sess->vififo_paddr);
 		INIT_LIST_HEAD(&sess->bufs);
 		INIT_LIST_HEAD(&sess->bufs_recycle);
+		if (sess->priv) {
+			kfree(sess->priv);
+			sess->priv = NULL;
+		}
 	}
 
 	if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {

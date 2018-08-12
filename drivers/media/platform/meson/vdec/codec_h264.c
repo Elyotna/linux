@@ -15,45 +15,52 @@
 #define SIZE_SEI	(8 * SZ_1K)
 
 /* Offset added by the firmware which must be substracted
- * from the workspace paddr
+ * from the workspace phyaddr
  */
-#define DEF_BUF_START_ADDR 0x1000000
+#define WORKSPACE_BUF_OFFSET	0x1000000
 
 /* DOS registers */
 #define ASSIST_MBOX1_CLR_REG	0x01d4
 #define ASSIST_MBOX1_MASK	0x01d8
 
-#define LMEM_DMA_CTRL 0x0d40
+#define LMEM_DMA_CTRL		0x0d40
 
-#define PSCALE_CTRL 0x2444
+#define PSCALE_CTRL		0x2444
 
 #define MDEC_PIC_DC_CTRL	0x2638
 #define ANC0_CANVAS_ADDR	0x2640
 #define MDEC_PIC_DC_THRESH	0x26e0
 
-#define AV_SCRATCH_0	0x2700
-#define AV_SCRATCH_1	0x2704
-#define AV_SCRATCH_2	0x2708
-#define AV_SCRATCH_3	0x270c
-#define AV_SCRATCH_4	0x2710
-#define AV_SCRATCH_5	0x2714
-#define AV_SCRATCH_6	0x2718
-#define AV_SCRATCH_7	0x271c
-#define AV_SCRATCH_8	0x2720
-#define AV_SCRATCH_9	0x2724
-#define AV_SCRATCH_D	0x2734
-#define AV_SCRATCH_F	0x273c
-#define AV_SCRATCH_G	0x2740
-#define AV_SCRATCH_H	0x2744
-#define AV_SCRATCH_I	0x2748
-#define AV_SCRATCH_J	0x274c
+#define AV_SCRATCH_0		0x2700
+#define AV_SCRATCH_1		0x2704
+#define AV_SCRATCH_2		0x2708
+#define AV_SCRATCH_3		0x270c
+#define AV_SCRATCH_4		0x2710
+#define AV_SCRATCH_5		0x2714
+#define AV_SCRATCH_6		0x2718
+#define AV_SCRATCH_7		0x271c
+#define AV_SCRATCH_8		0x2720
+#define AV_SCRATCH_9		0x2724
+#define AV_SCRATCH_D		0x2734
+#define AV_SCRATCH_F		0x273c
+#define AV_SCRATCH_G		0x2740
+#define AV_SCRATCH_H		0x2744
+#define AV_SCRATCH_I		0x2748
+#define AV_SCRATCH_J		0x274c
 	#define SEI_DATA_READY BIT(15)
 
-#define POWER_CTL_VLD 0x3020
+#define POWER_CTL_VLD		0x3020
 
-#define DCAC_DMA_CTRL 0x3848
+#define DCAC_DMA_CTRL		0x3848
 
-#define DOS_SW_RESET0 0xfc00
+#define DOS_SW_RESET0		0xfc00
+
+/* ISR status */
+#define CMD_SET_PARAM		1
+#define CMD_FRAMES_READY	2
+#define CMD_FATAL_ERROR		6
+#define CMD_BAD_WIDTH		7
+#define CMD_BAD_HEIGHT		8
 
 struct codec_h264 {
 	/* H.264 decoder requires an extended firmware loaded in contiguous RAM */
@@ -69,7 +76,7 @@ struct codec_h264 {
 	dma_addr_t ref_paddr;
 	u32	   ref_size;
 
-	/* Buffer for parsed SEI data ; > M8 ? */
+	/* Buffer for parsed SEI data */
 	void      *sei_vaddr;
 	dma_addr_t sei_paddr;
 };
@@ -130,7 +137,7 @@ static int codec_h264_start(struct vdec_session *sess) {
 	writel_relaxed(0, core->dos_base + PSCALE_CTRL);
 	writel_relaxed(0, core->dos_base + AV_SCRATCH_0);
 
-	workspace_offset = h264->workspace_paddr - DEF_BUF_START_ADDR;
+	workspace_offset = h264->workspace_paddr - WORKSPACE_BUF_OFFSET;
 	writel_relaxed(workspace_offset, core->dos_base + AV_SCRATCH_1);
 	writel_relaxed(h264->ext_fw_paddr, core->dos_base + AV_SCRATCH_G);
 	writel_relaxed(h264->sei_paddr - workspace_offset, core->dos_base + AV_SCRATCH_I);
@@ -140,7 +147,7 @@ static int codec_h264_start(struct vdec_session *sess) {
 	writel_relaxed(0, core->dos_base + AV_SCRATCH_9);
 
 	/* Enable "error correction", don't know what it means */
-	writel_relaxed((readl_relaxed(core->dos_base + AV_SCRATCH_F) & 0xffffffc3) | (1 << 4), core->dos_base + AV_SCRATCH_F);
+	writel_relaxed((readl_relaxed(core->dos_base + AV_SCRATCH_F) & 0xffffffc3) | (1 << 4) | (1 << 7), core->dos_base + AV_SCRATCH_F);
 
 	/* Enable IRQ */
 	writel_relaxed(1, core->dos_base + ASSIST_MBOX1_CLR_REG);
@@ -174,9 +181,6 @@ static int codec_h264_stop(struct vdec_session *sess)
 	
 	if (h264->sei_vaddr)
 		dma_free_coherent(core->dev, SIZE_SEI, h264->sei_vaddr, h264->sei_paddr);
-
-	kfree(h264);
-	sess->priv = 0;
 	
 	return 0;
 }
@@ -228,7 +232,7 @@ static void codec_h264_set_param(struct vdec_session *sess) {
 	mb_total = (parsed_info >> 8) & 0xffff;
 
 	/* Size of Motion Vector per macroblock ? */
-	mb_mv_byte = (parsed_info & 0x80000000) ? 24 : 96;
+	mb_mv_byte = 96;
 
 	/* Number of macroblocks per line */
 	mb_width = parsed_info & 0xff;
@@ -297,9 +301,10 @@ static void codec_h264_frames_ready(struct vdec_session *sess, u32 status)
 		 * Typical reason is a temporarily corrupted bitstream
 		 */
 		if (error)
-			dev_info(core->dev, "Buffer %d decode error: %08X\n",
-				buffer_index, error);
+			dev_info(core->dev, "Buffer %d decode error\n",
+				 buffer_index);
 
+		//printk("done %d/%d: %d\n", i, num_frames, buffer_index);
 		vdec_dst_buf_done_idx(sess, buffer_index);
 	}
 }
@@ -314,23 +319,21 @@ static irqreturn_t codec_h264_threaded_isr(struct vdec_session *sess)
 	status = readl_relaxed(core->dos_base + AV_SCRATCH_0);
 	cmd = status & 0xff;
 
-	dev_dbg(core->dev, "H264 status: %08X\n", status);
-
 	switch (cmd) {
-	case 1:
+	case CMD_SET_PARAM:
 		codec_h264_set_param(sess);
 		break;
-	case 2:
+	case CMD_FRAMES_READY:
 		codec_h264_frames_ready(sess, status);
 		break;
-	case 6:
+	case CMD_FATAL_ERROR:
 		dev_err(core->dev, "H.264 decoder fatal error\n");
 		goto abort;
-	case 7:
+	case CMD_BAD_WIDTH:
 		size = (readl_relaxed(core->dos_base + AV_SCRATCH_1) + 1) * 16;
 		dev_err(core->dev, "Unsupported video width: %u\n", size);
 		goto abort;
-	case 8:
+	case CMD_BAD_HEIGHT:
 		size = (readl_relaxed(core->dos_base + AV_SCRATCH_1) + 1) * 16;
 		dev_err(core->dev, "Unsupported video height: %u\n", size);
 		goto abort;
@@ -341,7 +344,7 @@ static irqreturn_t codec_h264_threaded_isr(struct vdec_session *sess)
 		break;
 	}
 
-	if (cmd > 1)
+	if (cmd != CMD_SET_PARAM)
 		writel_relaxed(0, core->dos_base + AV_SCRATCH_0);
 
 	/* Decoder has some SEI data for us ; ignore */

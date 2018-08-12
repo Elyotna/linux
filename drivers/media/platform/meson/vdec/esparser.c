@@ -49,7 +49,7 @@
 	#define MEM_BUFCTRL_MANUAL	BIT(1)
 
 #define SEARCH_PATTERN_LEN	512
-#define MIN_PACKET_SIZE	(4 * SZ_1K)
+#define MIN_PACKET_SIZE		(4 * SZ_1K)
 
 static DECLARE_WAIT_QUEUE_HEAD(wq);
 static int search_done;
@@ -58,7 +58,7 @@ static int search_done;
  * Credits to Endless Mobile.
  */
 #define EOS_TAIL_BUF_SIZE 1024
-static const u8 eos_tail_data[] = {
+static const u8 eos_tail_data[EOS_TAIL_BUF_SIZE] = {
 	0x00, 0x00, 0x00, 0x01, 0x06, 0x05, 0xff, 0xe4, 0xdc, 0x45, 0xe9, 0xbd, 0xe6, 0xd9, 0x48, 0xb7,
 	0x96, 0x2c, 0xd8, 0x20, 0xd9, 0x23, 0xee, 0xef, 0x78, 0x32, 0x36, 0x34, 0x20, 0x2d, 0x20, 0x63,
 	0x6f, 0x72, 0x65, 0x20, 0x36, 0x37, 0x20, 0x72, 0x31, 0x31, 0x33, 0x30, 0x20, 0x38, 0x34, 0x37,
@@ -130,9 +130,10 @@ static u32 esparser_pad_start_code(struct vb2_buffer *vb)
 
 	if (payload_size < MIN_PACKET_SIZE) {
 		pad_size = MIN_PACKET_SIZE - payload_size;
-		memset(&vaddr[0], 0, pad_size);
+		memset(vaddr, 0, pad_size);
 	}
 
+	memset(vaddr + pad_size + 4, 0, 508);
 	vaddr[pad_size]     = 0x00;
 	vaddr[pad_size + 1] = 0x00;
 	vaddr[pad_size + 2] = 0x01;
@@ -187,6 +188,7 @@ int esparser_queue_eos(struct vdec_session *sess)
 	if (!eos_vaddr)
 		return -ENOMEM;
 
+	memset(eos_vaddr, 0, EOS_TAIL_BUF_SIZE + 512);
 	memcpy(eos_vaddr, eos_tail_data, sizeof(eos_tail_data));
 	ret = esparser_write_data(core, eos_paddr, EOS_TAIL_BUF_SIZE);
 	dma_free_coherent(dev, EOS_TAIL_BUF_SIZE + 512,

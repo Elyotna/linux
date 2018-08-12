@@ -117,9 +117,6 @@ static int codec_mpeg12_stop(struct vdec_session *sess)
 		mpeg12->workspace_vaddr = 0;
 	}
 
-	kfree(mpeg12);
-	sess->priv = 0;
-
 	return 0;
 }
 

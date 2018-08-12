@@ -771,9 +771,6 @@ static int codec_hevc_stop(struct vdec_session *sess)
 				  hevc->aux_vaddr, hevc->aux_paddr);
 		hevc->aux_vaddr = 0;
 	}
-
-	kfree(hevc);
-	sess->priv = 0;
 	mutex_unlock(&sess->codec_lock);
 
 	return 0;
