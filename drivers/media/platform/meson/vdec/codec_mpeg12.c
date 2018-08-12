@@ -97,9 +97,6 @@ static int codec_mpeg12_start(struct vdec_session *sess) {
 	writel_relaxed(0, core->dos_base + MREG_FATAL_ERROR);
 	writel_relaxed(0, core->dos_base + MREG_WAIT_BUFFER);
 
-	/* Enable NV21 */
-	writel_relaxed(readl_relaxed(core->dos_base + MDEC_PIC_DC_CTRL) | (1 << 17), core->dos_base + MDEC_PIC_DC_CTRL);
-
 	return 0;
 
 free_mpeg12:

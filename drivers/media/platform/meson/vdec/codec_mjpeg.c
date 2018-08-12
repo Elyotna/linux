@@ -123,9 +123,6 @@ static int codec_mjpeg_start(struct vdec_session *sess)
 	writel_relaxed(1, core->dos_base + ASSIST_MBOX1_MASK);
 	writel_relaxed(8, core->dos_base + VDEC_ASSIST_AMR1_INT8);
 
-	/* Enable 2-plane output */
-	writel_relaxed(readl_relaxed(core->dos_base + MDEC_PIC_DC_CTRL) | (1 << 17), core->dos_base + MDEC_PIC_DC_CTRL);
-
 	return 0;
 }
 

@@ -153,9 +153,6 @@ static int codec_h264_start(struct vdec_session *sess) {
 	writel_relaxed(1, core->dos_base + ASSIST_MBOX1_CLR_REG);
 	writel_relaxed(1, core->dos_base + ASSIST_MBOX1_MASK);
 
-	/* Enable 2-plane output */
-	writel_relaxed(readl_relaxed(core->dos_base + MDEC_PIC_DC_CTRL) | (1 << 17), core->dos_base + MDEC_PIC_DC_CTRL);
-
 	writel_relaxed(0x404038aa, core->dos_base + MDEC_PIC_DC_THRESH);
 	
 	writel_relaxed((1<<12)|(1<<11), core->dos_base + DOS_SW_RESET0);

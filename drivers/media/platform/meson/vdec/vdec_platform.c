@@ -20,6 +20,10 @@ static const struct vdec_format vdec_formats_gxbb[] = {
 		.num_planes = 2,
 		.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
 	}, {
+		.pixfmt = V4L2_PIX_FMT_YUV420M,
+		.num_planes = 3,
+		.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
+	}, {
 		.pixfmt = V4L2_PIX_FMT_H264,
 		.num_planes = 1,
 		.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
@@ -100,6 +104,10 @@ static const struct vdec_format vdec_formats_gxl[] = {
 		.num_planes = 2,
 		.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
 	}, {
+		.pixfmt = V4L2_PIX_FMT_YUV420M,
+		.num_planes = 3,
+		.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
+	}, {
 		.pixfmt = V4L2_PIX_FMT_H264,
 		.num_planes = 1,
 		.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
@@ -178,6 +186,10 @@ static const struct vdec_format vdec_formats_gxm[] = {
 	{
 		.pixfmt = V4L2_PIX_FMT_NV12M,
 		.num_planes = 2,
+		.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
+	}, {
+		.pixfmt = V4L2_PIX_FMT_YUV420M,
+		.num_planes = 3,
 		.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
 	}, {
 		.pixfmt = V4L2_PIX_FMT_H264,

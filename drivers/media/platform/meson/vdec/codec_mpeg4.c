@@ -130,9 +130,6 @@ static int codec_mpeg4_start(struct vdec_session *sess) {
 	writel_relaxed(1, core->dos_base + ASSIST_MBOX1_MASK);
 	writel_relaxed(0x404038aa, core->dos_base + MDEC_PIC_DC_THRESH);
 
-	/* Enable NV21 */
-	writel_relaxed(readl_relaxed(core->dos_base + MDEC_PIC_DC_CTRL) | (1 << 17), core->dos_base + MDEC_PIC_DC_CTRL);
-
 	return 0;
 
 free_mpeg4:
