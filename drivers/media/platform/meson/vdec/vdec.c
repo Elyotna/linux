@@ -56,19 +56,22 @@ static int vdec_recycle_thread(void *data)
 	struct vdec_session *sess = data;
 	struct vdec_core *core = sess->core;
 	struct vdec_codec_ops *codec_ops = sess->fmt_out->codec_ops;
-	struct vdec_buffer *tmp;
+	struct vdec_buffer *tmp, *n;
 
 	while (!kthread_should_stop()) {
 		mutex_lock(&sess->bufs_recycle_lock);
-		while (!list_empty(&sess->bufs_recycle) &&
-		       codec_ops->can_recycle(core))
-		{
-			tmp = list_first_entry(&sess->bufs_recycle,
-					       struct vdec_buffer, list);
-			codec_ops->recycle(core, tmp->index);
-			dev_dbg(core->dev, "Buffer %d recycled\n", tmp->index);
+
+		list_for_each_entry_safe(tmp, n, &sess->bufs_recycle, list) {
+			if (!codec_ops->can_recycle(core) ||
+			    sess->num_recycle < 2)
+				break;
+
+			codec_ops->recycle(core, tmp->vb->index);
+			dev_dbg(core->dev, "Buffer %d recycled\n",
+				tmp->vb->index);
 			list_del(&tmp->list);
 			kfree(tmp);
+			sess->num_recycle--;
 		}
 		mutex_unlock(&sess->bufs_recycle_lock);
 
@@ -120,10 +123,11 @@ void vdec_queue_recycle(struct vdec_session *sess, struct vb2_buffer *vb)
 	struct vdec_buffer *new_buf;
 
 	new_buf = kmalloc(sizeof(struct vdec_buffer), GFP_KERNEL);
-	new_buf->index = vb->index;
+	new_buf->vb = vb;
 
 	mutex_lock(&sess->bufs_recycle_lock);
 	list_add_tail(&new_buf->list, &sess->bufs_recycle);
+	sess->num_recycle++;
 	mutex_unlock(&sess->bufs_recycle_lock);
 }
 
@@ -232,6 +236,7 @@ static int vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 		goto vififo_free;
 
 	sess->sequence_cap = 0;
+	sess->num_recycle = 0;
 	if (vdec_codec_needs_recycle(sess))
 		sess->recycle_thread = kthread_run(vdec_recycle_thread, sess,
 						   "vdec_recycle");
@@ -786,7 +791,7 @@ static int vdec_close(struct file *file)
 void vdec_dst_buf_done(struct vdec_session *sess, struct vb2_v4l2_buffer *vbuf)
 {
 	unsigned long flags;
-	struct vdec_buffer *tmp;
+	struct vdec_timestamp *tmp;
 	struct device *dev = sess->core->dev_dec;
 
 	spin_lock_irqsave(&sess->bufs_spinlock, flags);
@@ -799,11 +804,11 @@ void vdec_dst_buf_done(struct vdec_session *sess, struct vb2_v4l2_buffer *vbuf)
 		goto unlock;
 	}
 
-	tmp = list_first_entry(&sess->bufs, struct vdec_buffer, list);
+	tmp = list_first_entry(&sess->bufs, struct vdec_timestamp, list);
 
 	vbuf->vb2_buf.planes[0].bytesused = vdec_get_output_size(sess);
 	vbuf->vb2_buf.planes[1].bytesused = vdec_get_output_size(sess) / 2;
-	vbuf->vb2_buf.timestamp = tmp->timestamp;
+	vbuf->vb2_buf.timestamp = tmp->ts;
 	vbuf->sequence = sess->sequence_cap++;
 
 	list_del(&tmp->list);
@@ -863,17 +868,16 @@ void vdec_dst_buf_done_idx(struct vdec_session *sess, u32 buf_idx)
 	vdec_dst_buf_done(sess, vbuf);
 }
 
-/* Userspace will queue timestamps that are not
+/* Userspace will queue src buffer timestamps that are not
  * in chronological order. Rearrange them here.
  */
 void vdec_add_ts_reorder(struct vdec_session *sess, u64 ts)
 {
-	struct vdec_buffer *new_buf, *tmp;
+	struct vdec_timestamp *new_ts, *tmp;
 	unsigned long flags;
 
-	new_buf = kmalloc(sizeof(*new_buf), GFP_KERNEL);
-	new_buf->timestamp = ts;
-	new_buf->index = -1;
+	new_ts = kmalloc(sizeof(*new_ts), GFP_KERNEL);
+	new_ts->ts = ts;
 
 	spin_lock_irqsave(&sess->bufs_spinlock, flags);
 
@@ -881,14 +885,14 @@ void vdec_add_ts_reorder(struct vdec_session *sess, u64 ts)
 		goto add_core;
 
 	list_for_each_entry(tmp, &sess->bufs, list) {
-		if (ts < tmp->timestamp) {
-			list_add_tail(&new_buf->list, &tmp->list);
+		if (ts < tmp->ts) {
+			list_add_tail(&new_ts->list, &tmp->list);
 			goto unlock;
 		}
 	}
 
 add_core:
-	list_add_tail(&new_buf->list, &sess->bufs);
+	list_add_tail(&new_ts->list, &sess->bufs);
 unlock:
 	spin_unlock_irqrestore(&sess->bufs_spinlock, flags);
 }
@@ -900,7 +904,7 @@ void vdec_remove_ts(struct vdec_session *sess, u64 ts)
 
 	spin_lock_irqsave(&sess->bufs_spinlock, flags);
 	list_for_each_entry(tmp, &sess->bufs, list) {
-		if (tmp->timestamp == ts) {
+		if (tmp->vb->timestamp == ts) {
 			list_del(&tmp->list);
 			kfree(tmp);
 			goto unlock;

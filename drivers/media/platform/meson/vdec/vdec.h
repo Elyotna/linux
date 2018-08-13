@@ -23,8 +23,12 @@ struct dummy_buf {
 
 struct vdec_buffer {
 	struct list_head list;
-	s32 index;
-	u64 timestamp;
+	struct vb2_buffer *vb;
+};
+
+struct vdec_timestamp {
+	struct list_head list;
+	u64 ts;
 };
 
 struct vdec_session;
@@ -134,6 +138,7 @@ struct vdec_session {
 	/* Buffers that need to be recycled by the HW */
 	struct list_head bufs_recycle;
 	struct mutex bufs_recycle_lock;
+	unsigned int num_recycle;
 	/* Thread for recycling buffers into the hardware */
 	struct task_struct *recycle_thread;
 	
