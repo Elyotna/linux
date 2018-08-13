@@ -726,7 +726,7 @@ static int vdec_open(struct file *file)
 
 	sess->core = core;
 	sess->fmt_cap = &formats[0];
-	sess->fmt_out = &formats[1];
+	sess->fmt_out = &formats[2];
 	sess->width = 1280;
 	sess->height = 720;
 	INIT_LIST_HEAD(&sess->bufs);
