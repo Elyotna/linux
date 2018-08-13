@@ -1002,28 +1002,20 @@ static int vdec_probe(struct platform_device *pdev)
 	}
 
 	core->dos_parser_clk = devm_clk_get(dev, "dos_parser");
-	if (IS_ERR(core->dos_parser_clk)) {
-		dev_err(dev, "dos_parser clock request failed\n");
-		return PTR_ERR(core->dos_parser_clk);
-	}
+	if (IS_ERR(core->dos_parser_clk))
+		return -EPROBE_DEFER;
 
 	core->dos_clk = devm_clk_get(dev, "dos");
-	if (IS_ERR(core->dos_clk)) {
-		dev_err(dev, "dos clock request failed\n");
-		return PTR_ERR(core->dos_clk);
-	}
+	if (IS_ERR(core->dos_clk))
+		return -EPROBE_DEFER;
 
 	core->vdec_1_clk = devm_clk_get(dev, "vdec_1");
-	if (IS_ERR(core->vdec_1_clk)) {
-		dev_err(dev, "vdec_1 clock request failed\n");
-		return PTR_ERR(core->vdec_1_clk);
-	}
+	if (IS_ERR(core->vdec_1_clk))
+		return -EPROBE_DEFER;
 
 	core->vdec_hevc_clk = devm_clk_get(dev, "vdec_hevc");
-	if (IS_ERR(core->vdec_hevc_clk)) {
-		dev_err(dev, "vdec_hevc clock request failed\n");
-		return PTR_ERR(core->vdec_hevc_clk);
-	}
+	if (IS_ERR(core->vdec_hevc_clk))
+		return -EPROBE_DEFER;
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0)
