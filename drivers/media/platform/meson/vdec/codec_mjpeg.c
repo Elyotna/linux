@@ -123,6 +123,9 @@ static int codec_mjpeg_start(struct vdec_session *sess)
 	writel_relaxed(1, core->dos_base + ASSIST_MBOX1_MASK);
 	writel_relaxed(8, core->dos_base + VDEC_ASSIST_AMR1_INT8);
 
+	/* Intra-only codec */
+	sess->keyframe_found = 1;
+
 	return 0;
 }
 

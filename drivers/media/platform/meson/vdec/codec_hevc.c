@@ -1361,6 +1361,7 @@ static irqreturn_t codec_hevc_threaded_isr(struct vdec_session *sess)
 		goto unlock;
 	}
 
+	sess->keyframe_found = 1;
 	codec_hevc_fetch_rpm(sess);
 	if (codec_hevc_process_rpm(sess)) {
 		vdec_abort(sess);

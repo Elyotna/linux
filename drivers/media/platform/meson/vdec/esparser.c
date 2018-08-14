@@ -237,18 +237,27 @@ static int esparser_queue(struct vdec_session *sess, struct vb2_v4l2_buffer *vbu
 	ret = esparser_write_data(core, phy, payload_size + pad_size);
 
 	if (ret > 0) {
+		/* We need to wait until we parse/decode the first keyframe.
+		 * All buffers prior to the first keyframe must be dropped.
+		 */
+		if (!sess->keyframe_found)
+			usleep_range(1000, 2000);
+
+		if (sess->keyframe_found)
+			atomic_inc(&sess->esparser_queued_bufs);
+		else
+			vdec_remove_ts(sess, vb->timestamp);
+
 		vbuf->flags = 0;
 		vbuf->field = V4L2_FIELD_NONE;
 		v4l2_m2m_buf_done(vbuf, VB2_BUF_STATE_DONE);
-	} else if (ret <= 0) {
-		dev_warn(core->dev, "esparser: input parsing error\n");
-		vdec_remove_ts(sess, vb->timestamp);
-		v4l2_m2m_buf_done(vbuf, VB2_BUF_STATE_ERROR);
-		writel_relaxed(0, core->esparser_base + PARSER_FETCH_CMD);
+		return 0;
 	}
 
-	if (vbuf->flags & V4L2_BUF_FLAG_LAST)
-		esparser_queue_eos(sess);
+	dev_warn(core->dev, "esparser: input parsing error\n");
+	vdec_remove_ts(sess, vb->timestamp);
+	v4l2_m2m_buf_done(vbuf, VB2_BUF_STATE_ERROR);
+	writel_relaxed(0, core->esparser_base + PARSER_FETCH_CMD);
 
 	return 0;
 }
@@ -263,8 +272,6 @@ void esparser_queue_all_src(struct work_struct *work)
 	v4l2_m2m_for_each_src_buf_safe(sess->m2m_ctx, buf, n) {
 		if (esparser_queue(sess, &buf->vb) < 0)
 			break;
-
-		atomic_inc(&sess->esparser_queued_bufs);
 	}
 	mutex_unlock(&sess->lock);
 }

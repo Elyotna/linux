@@ -136,6 +136,7 @@ static irqreturn_t codec_mpeg12_isr(struct vdec_session *sess)
 	if ((reg >> 16) & 0xfe)
 		goto end;
 
+	sess->keyframe_found = 1;
 	buffer_index = ((reg & 0xf) - 1) & 7;
 	vdec_dst_buf_done_idx(sess, buffer_index);
 

@@ -219,6 +219,8 @@ static void codec_h264_set_param(struct vdec_session *sess) {
 	struct vdec_core *core = sess->core;
 	struct codec_h264 *h264 = sess->priv;
 
+	sess->keyframe_found = 1;
+
 	writel_relaxed(0, core->dos_base + AV_SCRATCH_7);
 	writel_relaxed(0, core->dos_base + AV_SCRATCH_8);
 	writel_relaxed(0, core->dos_base + AV_SCRATCH_9);
@@ -261,12 +263,11 @@ static void codec_h264_set_param(struct vdec_session *sess) {
 		vdec_abort(sess);
 		return;
 	}
+
 	/* Address to store the references' MVs ? */
 	writel_relaxed(h264->ref_paddr, core->dos_base + AV_SCRATCH_1);
-
 	/* End of ref MV */
 	writel_relaxed(h264->ref_paddr + h264->ref_size, core->dos_base + AV_SCRATCH_4);
-
 	writel_relaxed((max_reference_size << 24) | (actual_dpb_size << 16) | (max_dpb_size << 8), core->dos_base + AV_SCRATCH_0);
 }
 

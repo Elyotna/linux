@@ -130,6 +130,9 @@ struct vdec_session {
 	 */
 	unsigned int should_stop;
 
+	/* Is set to 1 once the first keyframe has been parsed/decodeed */
+	unsigned int keyframe_found;
+
 	/* Big contiguous area for the VIFIFO */
 	void *vififo_vaddr;
 	dma_addr_t vififo_paddr;

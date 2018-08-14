@@ -237,6 +237,7 @@ static int vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 
 	sess->sequence_cap = 0;
 	sess->num_recycle = 0;
+	sess->keyframe_found = 0;
 	if (vdec_codec_needs_recycle(sess))
 		sess->recycle_thread = kthread_run(vdec_recycle_thread, sess,
 						   "vdec_recycle");
@@ -822,11 +823,11 @@ void vdec_dst_buf_done(struct vdec_session *sess, struct vb2_v4l2_buffer *vbuf)
 	}
 
 	v4l2_m2m_buf_done(vbuf, VB2_BUF_STATE_DONE);
+	atomic_dec(&sess->esparser_queued_bufs);
 
 unlock:
 	spin_unlock_irqrestore(&sess->bufs_spinlock, flags);
 
-	atomic_dec(&sess->esparser_queued_bufs);
 	/* Buffer done probably means the vififo got freed */
 	schedule_work(&sess->esparser_queue_work);
 }
@@ -899,12 +900,12 @@ unlock:
 
 void vdec_remove_ts(struct vdec_session *sess, u64 ts)
 {
-	struct vdec_buffer *tmp;
+	struct vdec_timestamp *tmp;
 	unsigned long flags;
 
 	spin_lock_irqsave(&sess->bufs_spinlock, flags);
 	list_for_each_entry(tmp, &sess->bufs, list) {
-		if (tmp->vb->timestamp == ts) {
+		if (tmp->ts == ts) {
 			list_del(&tmp->list);
 			kfree(tmp);
 			goto unlock;

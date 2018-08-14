@@ -162,6 +162,7 @@ static irqreturn_t codec_mpeg4_isr(struct vdec_session *sess)
 
 	reg = readl_relaxed(core->dos_base + MREG_BUFFEROUT);
 	if (reg) {
+		sess->keyframe_found = 1;
 		readl_relaxed(core->dos_base + MP4_NOT_CODED_CNT);
 		readl_relaxed(core->dos_base + MP4_VOP_TIME_INC);
 		buffer_index = reg & 0x7;
