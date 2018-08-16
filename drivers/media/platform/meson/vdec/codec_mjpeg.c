@@ -8,30 +8,12 @@
 
 #include "codec_mjpeg.h"
 #include "codec_helpers.h"
+#include "dos_regs.h"
 
-/* DOS registers */
-#define VDEC_ASSIST_AMR1_INT8	0x00b4
-
-#define ASSIST_MBOX1_CLR_REG	0x01d4
-#define ASSIST_MBOX1_MASK	0x01d8
-
-#define MCPU_INTR_MSK		0x0c10
-
-#define PSCALE_RST		0x2440
-#define PSCALE_CTRL		0x2444
-#define PSCALE_BMEM_ADDR	0x247c
-#define PSCALE_BMEM_DAT		0x2480
-
-#define MDEC_PIC_DC_CTRL	0x2638
-
-#define AV_SCRATCH_0		0x2700
-#define AV_SCRATCH_1		0x2704
-#define MREG_DECODE_PARAM	0x2708
-#define AV_SCRATCH_4		0x2710
-#define MREG_TO_AMRISC		0x2720
-#define MREG_FROM_AMRISC	0x2724
-
-#define DOS_SW_RESET0		0xfc00
+/* map FW registers to known MJPEG functions */
+#define MREG_DECODE_PARAM	AV_SCRATCH_2
+#define MREG_TO_AMRISC		AV_SCRATCH_8
+#define MREG_FROM_AMRISC	AV_SCRATCH_9
 
 static int codec_mjpeg_can_recycle(struct vdec_core *core)
 {

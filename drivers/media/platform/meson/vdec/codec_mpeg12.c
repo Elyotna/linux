@@ -8,38 +8,24 @@
 
 #include "codec_mpeg12.h"
 #include "codec_helpers.h"
+#include "dos_regs.h"
 
 #define SIZE_WORKSPACE	(2 * SZ_64K)
 #define SIZE_CCBUF	(5 * SZ_1K)
 
-/* DOS registers */
-#define ASSIST_MBOX1_CLR_REG 0x01d4
-#define ASSIST_MBOX1_MASK    0x01d8
-
-#define PSCALE_CTRL 0x2444
-
-#define MDEC_PIC_DC_CTRL   0x2638
-
-#define AV_SCRATCH_0		0x2700
-#define MREG_SEQ_INFO		0x2710
-#define MREG_PIC_INFO		0x2714
-#define MREG_PIC_WIDTH		0x2718
-#define MREG_PIC_HEIGHT		0x271c
-#define MREG_BUFFERIN		0x2720
-#define MREG_BUFFEROUT		0x2724
-#define MREG_CMD		0x2728
-#define MREG_CO_MV_START	0x272c
-#define MREG_ERROR_COUNT	0x2730
-#define MREG_FRAME_OFFSET	0x2734
-#define MREG_WAIT_BUFFER	0x2738
-#define MREG_FATAL_ERROR	0x273c
-
-#define MPEG1_2_REG	0x3004
-#define PIC_HEAD_INFO	0x300c
-#define POWER_CTL_VLD	0x3020
-#define M4_CONTROL_REG	0x30a4
-
-#define DOS_SW_RESET0 0xfc00
+/* map FW registers to known MPEG1/2 functions */
+#define MREG_SEQ_INFO		AV_SCRATCH_4
+#define MREG_PIC_INFO		AV_SCRATCH_5
+#define MREG_PIC_WIDTH		AV_SCRATCH_6
+#define MREG_PIC_HEIGHT		AV_SCRATCH_7
+#define MREG_BUFFERIN		AV_SCRATCH_8
+#define MREG_BUFFEROUT		AV_SCRATCH_9
+#define MREG_CMD		AV_SCRATCH_A
+#define MREG_CO_MV_START	AV_SCRATCH_B
+#define MREG_ERROR_COUNT	AV_SCRATCH_C
+#define MREG_FRAME_OFFSET	AV_SCRATCH_D
+#define MREG_WAIT_BUFFER	AV_SCRATCH_E
+#define MREG_FATAL_ERROR	AV_SCRATCH_F
 
 struct codec_mpeg12 {
 	/* Buffer for the MPEG1/2 Workspace */

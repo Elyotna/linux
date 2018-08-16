@@ -9,13 +9,8 @@
 
 #include "codec_hevc.h"
 #include "canvas.h"
+#include "dos_regs.h"
 #include "hevc_regs.h"
-
-/* DOS registers */
-#define ASSIST_MBOX1_CLR_REG 0x01d4
-#define ASSIST_MBOX1_MASK    0x01d8
-
-#define DOS_SW_RESET3        0xfcd0
 
 /* HEVC reg mapping */
 #define HEVC_DEC_STATUS_REG	HEVC_ASSIST_SCRATCH_0
@@ -645,7 +640,6 @@ static int codec_hevc_start(struct vdec_session *sess)
 	if (!hevc)
 		return -ENOMEM;
 
-	sess->priv = hevc;
 	INIT_LIST_HEAD(&hevc->ref_frames_list);
 	hevc->curr_poc = INVALID_POC;
 
@@ -723,6 +717,8 @@ static int codec_hevc_start(struct vdec_session *sess)
 
 	if (sess->fmt_cap->pixfmt != V4L2_PIX_FMT_NV12M)
 		codec_hevc_setup_decode_head(sess);
+
+	sess->priv = hevc;
 
 	return 0;
 

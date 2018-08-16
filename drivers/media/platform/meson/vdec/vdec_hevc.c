@@ -8,20 +8,12 @@
 
 #include "vdec_1.h"
 #include "hevc_regs.h"
+#include "dos_regs.h"
 
 /* AO Registers */
 #define AO_RTI_GEN_PWR_SLEEP0	0xe8
 #define AO_RTI_GEN_PWR_ISO0	0xec
 	#define GEN_PWR_VDEC_HEVC (BIT(7) | BIT(6))
-
-/* DOS Registers */
-#define ASSIST_MBOX1_CLR_REG 0x01d4
-#define ASSIST_MBOX1_MASK    0x01d8
-
-#define DOS_GEN_CTRL0	     0xfc08
-#define DOS_SW_RESET3        0xfcd0
-#define DOS_MEM_PD_HEVC      0xfccc
-#define DOS_GCLK_EN3	     0xfcd4
 
 #define MC_SIZE	(4096 * 4)
 

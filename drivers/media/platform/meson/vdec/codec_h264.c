@@ -9,6 +9,7 @@
 #include "codec_h264.h"
 #include "codec_helpers.h"
 #include "canvas.h"
+#include "dos_regs.h"
 
 #define SIZE_EXT_FW	(20 * SZ_1K)
 #define SIZE_WORKSPACE	0x1ee000
@@ -19,41 +20,7 @@
  */
 #define WORKSPACE_BUF_OFFSET	0x1000000
 
-/* DOS registers */
-#define ASSIST_MBOX1_CLR_REG	0x01d4
-#define ASSIST_MBOX1_MASK	0x01d8
-
-#define LMEM_DMA_CTRL		0x0d40
-
-#define PSCALE_CTRL		0x2444
-
-#define MDEC_PIC_DC_CTRL	0x2638
-#define ANC0_CANVAS_ADDR	0x2640
-#define MDEC_PIC_DC_THRESH	0x26e0
-
-#define AV_SCRATCH_0		0x2700
-#define AV_SCRATCH_1		0x2704
-#define AV_SCRATCH_2		0x2708
-#define AV_SCRATCH_3		0x270c
-#define AV_SCRATCH_4		0x2710
-#define AV_SCRATCH_5		0x2714
-#define AV_SCRATCH_6		0x2718
-#define AV_SCRATCH_7		0x271c
-#define AV_SCRATCH_8		0x2720
-#define AV_SCRATCH_9		0x2724
-#define AV_SCRATCH_D		0x2734
-#define AV_SCRATCH_F		0x273c
-#define AV_SCRATCH_G		0x2740
-#define AV_SCRATCH_H		0x2744
-#define AV_SCRATCH_I		0x2748
-#define AV_SCRATCH_J		0x274c
-	#define SEI_DATA_READY BIT(15)
-
-#define POWER_CTL_VLD		0x3020
-
-#define DCAC_DMA_CTRL		0x3848
-
-#define DOS_SW_RESET0		0xfc00
+#define SEI_DATA_READY BIT(15)
 
 /* ISR status */
 #define CMD_SET_PARAM		1

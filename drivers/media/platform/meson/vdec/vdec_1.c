@@ -7,41 +7,12 @@
 #include <linux/clk.h>
 
 #include "vdec_1.h"
+#include "dos_regs.h"
 
 /* AO Registers */
 #define AO_RTI_GEN_PWR_SLEEP0	0xe8
 #define AO_RTI_GEN_PWR_ISO0	0xec
 	#define GEN_PWR_VDEC_1 (BIT(3) | BIT(2))
-
-/* DOS Registers */
-#define ASSIST_MBOX1_CLR_REG 0x01d4
-#define ASSIST_MBOX1_MASK    0x01d8
-
-#define MPSR 0x0c04
-#define CPSR 0x0c84
-
-#define IMEM_DMA_CTRL  0x0d00
-#define IMEM_DMA_ADR   0x0d04
-#define IMEM_DMA_COUNT 0x0d08
-#define LMEM_DMA_CTRL  0x0d40
-
-#define MC_STATUS0  0x2424
-#define MC_CTRL1    0x242c
-
-#define DBLK_CTRL   0x2544
-#define DBLK_STATUS 0x254c
-
-#define GCLK_EN            0x260c
-#define MDEC_PIC_DC_CTRL   0x2638
-#define MDEC_PIC_DC_STATUS 0x263c
-
-#define DCAC_DMA_CTRL 0x3848
-
-#define DOS_SW_RESET0             0xfc00
-#define DOS_GCLK_EN0              0xfc04
-#define DOS_GEN_CTRL0             0xfc08
-#define DOS_MEM_PD_VDEC           0xfcc0
-#define DOS_VDEC_MCRCC_STALL_CTRL 0xfd00
 
 /* Stream Buffer (stbuf) regs (DOS) */
 #define POWER_CTL_VLD 0x3020

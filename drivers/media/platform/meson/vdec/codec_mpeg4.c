@@ -9,36 +9,23 @@
 #include "codec_mpeg4.h"
 #include "codec_helpers.h"
 #include "canvas.h"
+#include "dos_regs.h"
 
 #define SIZE_WORKSPACE		SZ_1M
 #define DCAC_BUFF_START_IP	0x02b00000
 
-/* DOS registers */
-#define ASSIST_MBOX1_CLR_REG 0x01d4
-#define ASSIST_MBOX1_MASK    0x01d8
-
-#define PSCALE_CTRL 0x2444
-
-#define MDEC_PIC_DC_CTRL   0x2638
-#define MDEC_PIC_DC_THRESH 0x26e0
-
-#define AV_SCRATCH_0        0x2700
-#define MP4_PIC_RATIO       0x2714
-#define MP4_RATE            0x270c
-#define AV_SCRATCH_4        0x2710
-#define MP4_ERR_COUNT       0x2718
-#define MP4_PIC_WH          0x271c
-#define MREG_BUFFERIN       0x2720
-#define MREG_BUFFEROUT      0x2724
-#define MP4_NOT_CODED_CNT   0x2728
-#define MP4_VOP_TIME_INC    0x272c
-#define MP4_OFFSET_REG      0x2730
-#define MP4_SYS_RATE        0x2738
-#define MEM_OFFSET_REG      0x273c
-#define AV_SCRATCH_G        0x2740
-#define MREG_FATAL_ERROR    0x2754
-
-#define DOS_SW_RESET0 0xfc00
+/* map FW registers to known MPEG4 functions */
+#define MP4_PIC_RATIO       AV_SCRATCH_5
+#define MP4_ERR_COUNT       AV_SCRATCH_6
+#define MP4_PIC_WH          AV_SCRATCH_7
+#define MREG_BUFFERIN       AV_SCRATCH_8
+#define MREG_BUFFEROUT      AV_SCRATCH_9
+#define MP4_NOT_CODED_CNT   AV_SCRATCH_A
+#define MP4_VOP_TIME_INC    AV_SCRATCH_B
+#define MP4_OFFSET_REG      AV_SCRATCH_C
+#define MP4_SYS_RATE        AV_SCRATCH_E
+#define MEM_OFFSET_REG      AV_SCRATCH_F
+#define MREG_FATAL_ERROR    AV_SCRATCH_L
 
 struct codec_mpeg4 {
 	/* Buffer for the MPEG4 Workspace */
