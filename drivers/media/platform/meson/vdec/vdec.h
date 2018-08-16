@@ -78,18 +78,19 @@ struct vdec_codec_ops {
 	irqreturn_t (*threaded_isr)(struct vdec_session *sess);
 };
 
-/* Describes one of the format that can be decoded/encoded */
+/* Describes one of the OUTPUT format that can be decoded */
 struct vdec_format {
 	u32 pixfmt;
-	u32 num_planes;
-	u32 type;
 	u32 min_buffers;
 	u32 max_buffers;
+	u32 max_width;
+	u32 max_height;
 
 	struct vdec_ops *vdec_ops;
 	struct vdec_codec_ops *codec_ops;
 
 	char *firmware_path;
+	u32 pixfmts_cap[4];
 };
 
 struct vdec_session {
@@ -102,7 +103,8 @@ struct vdec_session {
 	struct mutex codec_lock;
 	
 	const struct vdec_format *fmt_out;
-	const struct vdec_format *fmt_cap;
+	u32 pixfmt_cap;
+
 	u32 width;
 	u32 height;
 	u32 colorspace;

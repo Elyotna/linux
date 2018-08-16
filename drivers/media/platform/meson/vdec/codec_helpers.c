@@ -90,7 +90,7 @@ void codec_helper_set_canvases_nv12m(struct vdec_session *sess, void *reg_base)
 
 void codec_helper_set_canvases(struct vdec_session *sess, void *reg_base)
 {
-	u32 pixfmt = sess->fmt_cap->pixfmt;
+	u32 pixfmt = sess->pixfmt_cap;
 
 	switch (pixfmt) {
 	case V4L2_PIX_FMT_NV12M:

@@ -573,10 +573,8 @@ static void codec_hevc_setup_buffers_gxl(struct vdec_session *sess)
 	}
 
 	/* Fill the remaining unused slots with the last buffer's Y addr */
-	for (i = buf_size; i < MAX_REF_PIC_NUM; ++i) {
+	for (i = buf_size; i < MAX_REF_PIC_NUM; ++i)
 		writel_relaxed(buf_y_paddr  >> 5, core->dos_base + HEVCD_MPP_ANC2AXI_TBL_DATA);
-		//writel_relaxed(buf_uv_paddr >> 5, core->dos_base + HEVCD_MPP_ANC2AXI_TBL_DATA);
-	}
 
 	writel_relaxed(1, core->dos_base + HEVCD_MPP_ANC2AXI_TBL_CONF_ADDR);
 	writel_relaxed(1, core->dos_base + HEVCD_MPP_ANC_CANVAS_ACCCONFIG_ADDR);
@@ -642,6 +640,7 @@ static int codec_hevc_start(struct vdec_session *sess)
 
 	INIT_LIST_HEAD(&hevc->ref_frames_list);
 	hevc->curr_poc = INVALID_POC;
+	sess->priv = hevc;
 
 	ret = codec_hevc_setup_workspace(sess);
 	if (ret)
@@ -681,7 +680,7 @@ static int codec_hevc_start(struct vdec_session *sess)
 	writel_relaxed((1 << 1), core->dos_base + HEVCD_IPP_TOP_CNTL);
 
 	/* Enable 2-plane reference read mode for MC */
-	if (sess->fmt_cap->pixfmt == V4L2_PIX_FMT_NV12M)
+	if (sess->pixfmt_cap == V4L2_PIX_FMT_NV12M)
 		writel_relaxed(1 << 31, core->dos_base + HEVCD_MPP_DECOMP_CTL1);
 
 	writel_relaxed(1, core->dos_base + HEVC_WAIT_FLAG);
@@ -715,15 +714,14 @@ static int codec_hevc_start(struct vdec_session *sess)
 	else
 		codec_hevc_setup_buffers_gxl(sess);
 
-	if (sess->fmt_cap->pixfmt != V4L2_PIX_FMT_NV12M)
+	if (sess->pixfmt_cap != V4L2_PIX_FMT_NV12M)
 		codec_hevc_setup_decode_head(sess);
-
-	sess->priv = hevc;
 
 	return 0;
 
 free_hevc:
 	kfree(hevc);
+	sess->priv = NULL;
 	return ret;
 }
 
@@ -887,7 +885,7 @@ static void codec_hevc_set_sao(struct vdec_session *sess, struct hevc_frame *fra
 	}
 
 	val = readl_relaxed(core->dos_base + HEVC_SAO_CTRL1) & ~0x3ff3;
-	if (sess->fmt_cap->pixfmt == V4L2_PIX_FMT_NV12M)
+	if (sess->pixfmt_cap == V4L2_PIX_FMT_NV12M)
 		val |= 0xff0 | /* Set endianness for 2-bytes swaps (nv12) */
 			0x1;   /* disable cm compression */
 	else
@@ -903,7 +901,7 @@ static void codec_hevc_set_sao(struct vdec_session *sess, struct hevc_frame *fra
 
 	val = readl_relaxed(core->dos_base + HEVCD_IPP_AXIIF_CONFIG) & ~0x30;
 	val |= 0xf;
-	if (sess->fmt_cap->pixfmt != V4L2_PIX_FMT_NV12M)
+	if (sess->pixfmt_cap != V4L2_PIX_FMT_NV12M)
 		val |= 0x30; /* 64x32 block mode */
 
 	writel_relaxed(val, core->dos_base + HEVCD_IPP_AXIIF_CONFIG);
@@ -1293,7 +1291,7 @@ static int codec_hevc_process_rpm(struct vdec_session *sess)
 	u32 lcu_x_num_div, lcu_y_num_div;
 
 	if (rpm_param->p.bit_depth &&
-	    sess->fmt_cap->pixfmt == V4L2_PIX_FMT_NV12M) {
+	    sess->pixfmt_cap == V4L2_PIX_FMT_NV12M) {
 		dev_err(sess->core->dev_dec,
 		    "V4L2_PIX_FMT_NV12M is only compatible with HEVC 8-bit\n");
 		return -EINVAL;

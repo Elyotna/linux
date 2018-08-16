@@ -177,7 +177,7 @@ static int vdec_1_start(struct vdec_session *sess)
 	codec_ops->start(sess);
 
 	/* Enable 2-plane output */
-	if (sess->fmt_cap->pixfmt == V4L2_PIX_FMT_NV12M)
+	if (sess->pixfmt_cap == V4L2_PIX_FMT_NV12M)
 		writel_relaxed(readl_relaxed(core->dos_base + MDEC_PIC_DC_CTRL) | (1 << 17), core->dos_base + MDEC_PIC_DC_CTRL);
 
 	/* Enable firmware processor */
