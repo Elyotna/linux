@@ -34,7 +34,7 @@ static const struct vdec_format vdec_formats_gxbb[] = {
 		.vdec_ops = &vdec_hevc_ops,
 		.codec_ops = &codec_hevc_ops,
 		.firmware_path = "meson/gx/vh265_mc",
-		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, 0 },
+		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, V4L2_PIX_FMT_AM21C, 0 },
 	}, {
 		.pixfmt = V4L2_PIX_FMT_MPEG1,
 		.min_buffers = 8,
@@ -118,7 +118,7 @@ static const struct vdec_format vdec_formats_gxl[] = {
 		.vdec_ops = &vdec_hevc_ops,
 		.codec_ops = &codec_hevc_ops,
 		.firmware_path = "meson/gx/vh265_mc",
-		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, 0 },
+		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, V4L2_PIX_FMT_AM21C, 0 },
 	}, {
 		.pixfmt = V4L2_PIX_FMT_MPEG1,
 		.min_buffers = 8,
@@ -202,7 +202,7 @@ static const struct vdec_format vdec_formats_gxm[] = {
 		.vdec_ops = &vdec_hevc_ops,
 		.codec_ops = &codec_hevc_ops,
 		.firmware_path = "meson/gx/vh265_mc",
-		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, 0 },
+		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, V4L2_PIX_FMT_AM21C, 0 },
 	}, {
 		.pixfmt = V4L2_PIX_FMT_MPEG1,
 		.min_buffers = 8,

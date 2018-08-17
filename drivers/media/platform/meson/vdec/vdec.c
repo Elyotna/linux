@@ -22,8 +22,8 @@
 #include "vdec.h"
 #include "esparser.h"
 #include "canvas.h"
-
 #include "vdec_1.h"
+#include "codec_helpers.h"
 
 /* 16 MiB for parsed bitstream swap exchange */
 #define SIZE_VIFIFO (16 * SZ_1M)
@@ -172,6 +172,9 @@ static int vdec_queue_setup(struct vb2_queue *q,
 			sizes[1] = vdec_get_output_size(sess) / 4;
 			sizes[2] = vdec_get_output_size(sess) / 4;
 			*num_planes = 3;
+		} else if (pixfmt_cap == V4L2_PIX_FMT_AM21C) {
+			sizes[0] = codec_am21c_size(sess->width, sess->height);
+			*num_planes = 1;
 		}
 		*num_buffers = min(max(*num_buffers, fmt_out->min_buffers), fmt_out->max_buffers);
 		sess->num_output_bufs = *num_buffers;
@@ -392,6 +395,10 @@ vdec_try_fmt_common(struct vdec_session *sess, u32 size, struct v4l2_format *f)
 			      get_output_size(pixmp->width, pixmp->height) / 4;
 			pfmt[2].bytesperline = ALIGN(pixmp->width, 64) / 2;
 			pixmp->num_planes = 3;
+		} else if (pixmp->pixelformat == V4L2_PIX_FMT_AM21C) {
+			pfmt[0].sizeimage =
+				codec_am21c_size(pixmp->width, pixmp->height);
+			pfmt[0].bytesperline = 0;
 		}
 	}
 	else

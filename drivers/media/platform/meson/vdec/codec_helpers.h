@@ -4,5 +4,8 @@
 #include "vdec.h"
 
 void codec_helper_set_canvases(struct vdec_session *sess, void *reg_base);
+u32 codec_am21c_body_size(u32 width, u32 height);
+u32 codec_am21c_head_size(u32 width, u32 height);
+u32 codec_am21c_size(u32 width, u32 height);
 
 #endif

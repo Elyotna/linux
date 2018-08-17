@@ -11,6 +11,7 @@
 #include "canvas.h"
 #include "dos_regs.h"
 #include "hevc_regs.h"
+#include "codec_helpers.h"
 
 /* HEVC reg mapping */
 #define HEVC_DEC_STATUS_REG	HEVC_ASSIST_SCRATCH_0
@@ -505,24 +506,25 @@ static void codec_hevc_output_frames(struct vdec_session *sess)
 	}
 }
 
-/* Configure part of the IP responsible for frame buffer decompression */
+/* Configure frame buffer decompression */
 static void codec_hevc_setup_decode_head(struct vdec_session *sess)
 {
 	struct vdec_core *core = sess->core;
+	u32 body_size = codec_am21c_body_size(sess->width, sess->height);
+	u32 head_size = codec_am21c_head_size(sess->width, sess->height);
 
-	/* TODO */
 	writel_relaxed(0, core->dos_base + HEVCD_MPP_DECOMP_CTL1);
-	writel_relaxed(0, core->dos_base + HEVCD_MPP_DECOMP_CTL2);
-	writel_relaxed(0, core->dos_base + HEVC_CM_BODY_LENGTH);
-	writel_relaxed(0, core->dos_base + HEVC_CM_HEADER_OFFSET);
-	writel_relaxed(0, core->dos_base + HEVC_CM_HEADER_LENGTH);
+	writel_relaxed(body_size / 32, core->dos_base + HEVCD_MPP_DECOMP_CTL2);
+	writel_relaxed(body_size, core->dos_base + HEVC_CM_BODY_LENGTH);
+	writel_relaxed(body_size, core->dos_base + HEVC_CM_HEADER_OFFSET);
+	writel_relaxed(head_size, core->dos_base + HEVC_CM_HEADER_LENGTH);
 }
 
 static void codec_hevc_setup_buffers_gxbb(struct vdec_session *sess)
 {
 	struct vdec_core *core = sess->core;
 	struct v4l2_m2m_buffer *buf;
-	u32 buf_size = v4l2_m2m_num_dst_bufs_ready(sess->m2m_ctx);
+	u32 buf_num = v4l2_m2m_num_dst_bufs_ready(sess->m2m_ctx);
 	dma_addr_t buf_y_paddr = 0;
 	dma_addr_t buf_uv_paddr = 0;
 	u32 idx = 0;
@@ -534,17 +536,22 @@ static void codec_hevc_setup_buffers_gxbb(struct vdec_session *sess)
 	v4l2_m2m_for_each_dst_buf(sess->m2m_ctx, buf) {
 		idx = buf->vb.vb2_buf.index;
 		buf_y_paddr  = vb2_dma_contig_plane_dma_addr(&buf->vb.vb2_buf, 0);
-		buf_uv_paddr = vb2_dma_contig_plane_dma_addr(&buf->vb.vb2_buf, 1);
 
-		val = buf_y_paddr | ((idx * 2) << 8) | 1;
-		writel_relaxed(val, core->dos_base + HEVCD_MPP_ANC2AXI_TBL_CMD_ADDR);
-		val = buf_uv_paddr | ((idx * 2 + 1) << 8) | 1;
-		writel_relaxed(val, core->dos_base + HEVCD_MPP_ANC2AXI_TBL_CMD_ADDR);
+		if (sess->pixfmt_cap == V4L2_PIX_FMT_NV12M) {
+			buf_uv_paddr = vb2_dma_contig_plane_dma_addr(&buf->vb.vb2_buf, 1);
+			val = buf_y_paddr | ((idx * 2) << 8) | 1;
+			writel_relaxed(val, core->dos_base + HEVCD_MPP_ANC2AXI_TBL_CMD_ADDR);
+			val = buf_uv_paddr | ((idx * 2 + 1) << 8) | 1;
+			writel_relaxed(val, core->dos_base + HEVCD_MPP_ANC2AXI_TBL_CMD_ADDR);
+		} else if (sess->pixfmt_cap == V4L2_PIX_FMT_AM21C) {
+			val = buf_y_paddr | (idx << 8) | 1;
+			writel_relaxed(val, core->dos_base + HEVCD_MPP_ANC2AXI_TBL_CMD_ADDR);
+		}
 	}
 
 	val = buf_y_paddr | ((idx * 2) << 8) | 1;
 	/* Fill the remaining unused slots with the last buffer's Y addr */
-	for (i = buf_size; i < MAX_REF_PIC_NUM; ++i)
+	for (i = buf_num; i < MAX_REF_PIC_NUM; ++i)
 		writel_relaxed(val, core->dos_base + HEVCD_MPP_ANC2AXI_TBL_CMD_ADDR);
 
 	writel_relaxed(1, core->dos_base + HEVCD_MPP_ANC2AXI_TBL_CONF_ADDR);
@@ -557,7 +564,7 @@ static void codec_hevc_setup_buffers_gxl(struct vdec_session *sess)
 {
 	struct vdec_core *core = sess->core;
 	struct v4l2_m2m_buffer *buf;
-	u32 buf_size = v4l2_m2m_num_dst_bufs_ready(sess->m2m_ctx);
+	u32 buf_num = v4l2_m2m_num_dst_bufs_ready(sess->m2m_ctx);
 	dma_addr_t buf_y_paddr = 0;
 	dma_addr_t buf_uv_paddr = 0;
 	int i;
@@ -566,15 +573,19 @@ static void codec_hevc_setup_buffers_gxl(struct vdec_session *sess)
 
 	v4l2_m2m_for_each_dst_buf(sess->m2m_ctx, buf) {
 		buf_y_paddr  = vb2_dma_contig_plane_dma_addr(&buf->vb.vb2_buf, 0);
-		buf_uv_paddr = vb2_dma_contig_plane_dma_addr(&buf->vb.vb2_buf, 1);
-
-		writel_relaxed(buf_y_paddr  >> 5, core->dos_base + HEVCD_MPP_ANC2AXI_TBL_DATA);
-		writel_relaxed(buf_uv_paddr >> 5, core->dos_base + HEVCD_MPP_ANC2AXI_TBL_DATA);
+		writel_relaxed(buf_y_paddr >> 5, core->dos_base + HEVCD_MPP_ANC2AXI_TBL_DATA);
+		if (sess->pixfmt_cap == V4L2_PIX_FMT_NV12M) {
+			buf_uv_paddr = vb2_dma_contig_plane_dma_addr(&buf->vb.vb2_buf, 1);
+			writel_relaxed(buf_uv_paddr >> 5, core->dos_base + HEVCD_MPP_ANC2AXI_TBL_DATA);
+		}
 	}
 
 	/* Fill the remaining unused slots with the last buffer's Y addr */
-	for (i = buf_size; i < MAX_REF_PIC_NUM; ++i)
-		writel_relaxed(buf_y_paddr  >> 5, core->dos_base + HEVCD_MPP_ANC2AXI_TBL_DATA);
+	for (i = buf_num; i < MAX_REF_PIC_NUM; ++i) {
+		writel_relaxed(buf_y_paddr >> 5, core->dos_base + HEVCD_MPP_ANC2AXI_TBL_DATA);
+		if (sess->pixfmt_cap == V4L2_PIX_FMT_NV12M)
+			writel_relaxed(buf_uv_paddr >> 5, core->dos_base + HEVCD_MPP_ANC2AXI_TBL_DATA);
+	}
 
 	writel_relaxed(1, core->dos_base + HEVCD_MPP_ANC2AXI_TBL_CONF_ADDR);
 	writel_relaxed(1, core->dos_base + HEVCD_MPP_ANC_CANVAS_ACCCONFIG_ADDR);
@@ -714,7 +725,7 @@ static int codec_hevc_start(struct vdec_session *sess)
 	else
 		codec_hevc_setup_buffers_gxl(sess);
 
-	if (sess->pixfmt_cap != V4L2_PIX_FMT_NV12M)
+	if (sess->pixfmt_cap == V4L2_PIX_FMT_AM21C)
 		codec_hevc_setup_decode_head(sess);
 
 	return 0;
@@ -852,7 +863,7 @@ static void codec_hevc_set_sao(struct vdec_session *sess, struct hevc_frame *fra
 	struct codec_hevc *hevc = sess->priv;
 	union rpm_param *param = &hevc->rpm_param;
 	dma_addr_t buf_y_paddr = vb2_dma_contig_plane_dma_addr(&frame->vbuf->vb2_buf, 0);
-	dma_addr_t buf_u_v_paddr = vb2_dma_contig_plane_dma_addr(&frame->vbuf->vb2_buf, 1);
+	dma_addr_t buf_u_v_paddr;
 	u32 misc_flag0 = param->p.misc_flag0;
 	u32 slice_deblocking_filter_disabled_flag;
 	u32 val, val_2;
@@ -863,13 +874,17 @@ static void codec_hevc_set_sao(struct vdec_session *sess, struct hevc_frame *fra
 	writel_relaxed(hevc->width | (hevc->height << 16), core->dos_base + HEVC_SAO_PIC_SIZE);
 	writel_relaxed((hevc->lcu_x_num - 1) | (hevc->lcu_y_num - 1) << 16, core->dos_base + HEVC_SAO_PIC_SIZE_LCU);
 
-	writel_relaxed(buf_y_paddr, core->dos_base + HEVC_SAO_Y_START_ADDR);
+	if (sess->pixfmt_cap == V4L2_PIX_FMT_NV12M) {
+		buf_u_v_paddr = vb2_dma_contig_plane_dma_addr(&frame->vbuf->vb2_buf, 1);
+		writel_relaxed(buf_y_paddr, core->dos_base + HEVC_SAO_Y_START_ADDR);
+		writel_relaxed(buf_u_v_paddr, core->dos_base + HEVC_SAO_C_START_ADDR);
+		writel_relaxed(buf_y_paddr, core->dos_base + HEVC_SAO_Y_WPTR);
+		writel_relaxed(buf_u_v_paddr, core->dos_base + HEVC_SAO_C_WPTR);
+	} else if (sess->pixfmt_cap == V4L2_PIX_FMT_AM21C) {
+		writel_relaxed(buf_y_paddr, core->dos_base + HEVC_CM_BODY_START_ADDR);
+	}
 	writel_relaxed(vdec_get_output_size(sess), core->dos_base + HEVC_SAO_Y_LENGTH);
-	writel_relaxed(buf_u_v_paddr, core->dos_base + HEVC_SAO_C_START_ADDR);
 	writel_relaxed((vdec_get_output_size(sess) / 2), core->dos_base + HEVC_SAO_C_LENGTH);
-
-	writel_relaxed(buf_y_paddr, core->dos_base + HEVC_SAO_Y_WPTR);
-	writel_relaxed(buf_u_v_paddr, core->dos_base + HEVC_SAO_C_WPTR);
 
 	if (frame->cur_slice_idx == 0) {
 		writel_relaxed(hevc->width | (hevc->height << 16), core->dos_base + HEVC_DBLK_CFG2);
@@ -887,21 +902,23 @@ static void codec_hevc_set_sao(struct vdec_session *sess, struct hevc_frame *fra
 	val = readl_relaxed(core->dos_base + HEVC_SAO_CTRL1) & ~0x3ff3;
 	if (sess->pixfmt_cap == V4L2_PIX_FMT_NV12M)
 		val |= 0xff0 | /* Set endianness for 2-bytes swaps (nv12) */
-			0x1;   /* disable cm compression */
+			 0x1;   /* disable cm compression */
 	else
 		val |= 0x3000 | /* 64x32 block mode */
 			0x880 | /* 64-bit Big Endian */
-			0x2;    /* Disable double write */
+			  0x2;    /* Disable double write */
 
 	writel_relaxed(val, core->dos_base + HEVC_SAO_CTRL1);
 
-	/* set them all 0 for H265_NV21 (no down-scale) */
-	val = readl_relaxed(core->dos_base + HEVC_SAO_CTRL5) & ~0xff0000;
-	writel_relaxed(val, core->dos_base + HEVC_SAO_CTRL5);
+	if (sess->pixfmt_cap == V4L2_PIX_FMT_NV12M) {
+		/* no downscale for NV12 */
+		val = readl_relaxed(core->dos_base + HEVC_SAO_CTRL5) & ~0xff0000;
+		writel_relaxed(val, core->dos_base + HEVC_SAO_CTRL5);
+	}
 
 	val = readl_relaxed(core->dos_base + HEVCD_IPP_AXIIF_CONFIG) & ~0x30;
 	val |= 0xf;
-	if (sess->pixfmt_cap != V4L2_PIX_FMT_NV12M)
+	if (sess->pixfmt_cap == V4L2_PIX_FMT_AM21C)
 		val |= 0x30; /* 64x32 block mode */
 
 	writel_relaxed(val, core->dos_base + HEVCD_IPP_AXIIF_CONFIG);
@@ -1291,9 +1308,9 @@ static int codec_hevc_process_rpm(struct vdec_session *sess)
 	u32 lcu_x_num_div, lcu_y_num_div;
 
 	if (rpm_param->p.bit_depth &&
-	    sess->pixfmt_cap == V4L2_PIX_FMT_NV12M) {
+	    sess->pixfmt_cap != V4L2_PIX_FMT_AM21C) {
 		dev_err(sess->core->dev_dec,
-		    "V4L2_PIX_FMT_NV12M is only compatible with HEVC 8-bit\n");
+		   "HEVC 10-bit is only compatible with V4L2_PIX_FMT_AM21C\n");
 		return -EINVAL;
 	}
 
