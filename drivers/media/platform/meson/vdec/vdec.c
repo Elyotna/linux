@@ -312,7 +312,7 @@ static int
 vdec_querycap(struct file *file, void *fh, struct v4l2_capability *cap)
 {
 	strlcpy(cap->driver, "meson-vdec", sizeof(cap->driver));
-	strlcpy(cap->card, "AMLogic Video Decoder", sizeof(cap->card));
+	strlcpy(cap->card, "Amlogic Video Decoder", sizeof(cap->card));
 	strlcpy(cap->bus_info, "platform:meson-vdec", sizeof(cap->bus_info));
 
 	return 0;
@@ -586,6 +586,7 @@ vdec_decoder_cmd(struct file *file, void *fh, struct v4l2_decoder_cmd *cmd)
 {
 	struct vdec_session *sess =
 		container_of(file->private_data, struct vdec_session, fh);
+	struct vdec_codec_ops *codec_ops = sess->fmt_out->codec_ops;
 	int ret;
 
 	ret = vdec_try_decoder_cmd(file, fh, cmd);
@@ -608,9 +609,12 @@ vdec_decoder_cmd(struct file *file, void *fh, struct v4l2_decoder_cmd *cmd)
 	 */
 	while (time_is_after_jiffies64(
 	       sess->last_irq_jiffies + msecs_to_jiffies(100)))
-		msleep(20);
+		msleep(100);
 
-	esparser_queue_eos(sess);
+	if (codec_ops->drain)
+		codec_ops->drain(sess);
+	else
+		esparser_queue_eos(sess);
 
 unlock:
 	mutex_unlock(&sess->lock);

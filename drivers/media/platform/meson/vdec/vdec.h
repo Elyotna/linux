@@ -74,6 +74,7 @@ struct vdec_codec_ops {
 	int (*can_recycle)(struct vdec_core *core);
 	void (*recycle)(struct vdec_core *core, u32 buf_idx);
 	void (*notify_dst_buffer)(struct vdec_session *sess, struct vb2_buffer *vb);
+	void (*drain)(struct vdec_session *sess);
 	irqreturn_t (*isr)(struct vdec_session *sess);
 	irqreturn_t (*threaded_isr)(struct vdec_session *sess);
 };

@@ -486,6 +486,19 @@ static struct hevc_frame *codec_hevc_get_lowest_poc_frame(struct codec_hevc *hev
 	return ret;
 }
 
+static void codec_hevc_drain(struct vdec_session *sess)
+{
+	struct hevc_frame *tmp;
+	struct codec_hevc *hevc = sess->priv;
+
+	while ((tmp = codec_hevc_get_lowest_poc_frame(hevc))) {
+		vdec_dst_buf_done(sess, tmp->vbuf);
+		list_del(&tmp->list);
+		kfree(tmp);
+		hevc->frames_num--;
+	}
+}
+
 /* Try to output as many frames as possible */
 static void codec_hevc_output_frames(struct vdec_session *sess)
 {
@@ -1404,4 +1417,5 @@ struct vdec_codec_ops codec_hevc_ops = {
 	.isr = codec_hevc_isr,
 	.threaded_isr = codec_hevc_threaded_isr,
 	.num_pending_bufs = codec_hevc_num_pending_bufs,
+	.drain = codec_hevc_drain,
 };

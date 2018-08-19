@@ -269,7 +269,6 @@ static void codec_h264_frames_ready(struct vdec_session *sess, u32 status)
 			dev_info(core->dev, "Buffer %d decode error\n",
 				 buffer_index);
 
-		//printk("done %d/%d: %d\n", i, num_frames, buffer_index);
 		vdec_dst_buf_done_idx(sess, buffer_index);
 	}
 }
