@@ -227,12 +227,6 @@ static int esparser_queue(struct vdec_session *sess, struct vb2_v4l2_buffer *vbu
 	dev_dbg(core->dev, "esparser: Queuing ts = %llu ; pld_size = %u\n",
 		vb->timestamp, payload_size);
 
-	/* Queuing things too fast can unfortunately lead to HW lock
-	 * or buffer decoding errors, as it looks like the ESPARSER
-	 * gets confused with too much data thrown in too quickly.
-	 */
-	usleep_range(5000, 10000);
-
 	pad_size = esparser_pad_start_code(vb);
 	ret = esparser_write_data(core, phy, payload_size + pad_size);
 
