@@ -8,6 +8,6 @@
 
 #include "vdec.h"
 
-extern struct vdec_ops vdec_1_ops;
+extern struct amvdec_ops vdec_1_ops;
 
 #endif

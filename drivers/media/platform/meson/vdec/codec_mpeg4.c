@@ -33,12 +33,12 @@ struct codec_mpeg4 {
 	dma_addr_t workspace_paddr;
 };
 
-static int codec_mpeg4_can_recycle(struct vdec_core *core)
+static int codec_mpeg4_can_recycle(struct amvdec_core *core)
 {
 	return !readl_relaxed(core->dos_base + MREG_BUFFERIN);
 }
 
-static void codec_mpeg4_recycle(struct vdec_core *core, u32 buf_idx)
+static void codec_mpeg4_recycle(struct amvdec_core *core, u32 buf_idx)
 {
 	writel_relaxed(~(1 << buf_idx), core->dos_base + MREG_BUFFERIN);
 }
@@ -47,9 +47,9 @@ static void codec_mpeg4_recycle(struct vdec_core *core, u32 buf_idx)
  * handle it specifically instead of using the helper
  * AV_SCRATCH_0 - AV_SCRATCH_3  ;  AV_SCRATCH_G - AV_SCRATCH_J
  */
-void codec_mpeg4_set_canvases(struct vdec_session *sess) {
+void codec_mpeg4_set_canvases(struct amvdec_session *sess) {
 	struct v4l2_m2m_buffer *buf;
-	struct vdec_core *core = sess->core;
+	struct amvdec_core *core = sess->core;
 	void *current_reg = core->dos_base + AV_SCRATCH_0;
 	u32 width = ALIGN(sess->width, 64);
 	u32 height = ALIGN(sess->height, 64);
@@ -82,8 +82,8 @@ void codec_mpeg4_set_canvases(struct vdec_session *sess) {
 	}
 }
 
-static int codec_mpeg4_start(struct vdec_session *sess) {
-	struct vdec_core *core = sess->core;
+static int codec_mpeg4_start(struct amvdec_session *sess) {
+	struct amvdec_core *core = sess->core;
 	struct codec_mpeg4 *mpeg4 = sess->priv;
 	int ret;
 
@@ -124,10 +124,10 @@ free_mpeg4:
 	return ret;
 }
 
-static int codec_mpeg4_stop(struct vdec_session *sess)
+static int codec_mpeg4_stop(struct amvdec_session *sess)
 {
 	struct codec_mpeg4 *mpeg4 = sess->priv;
-	struct vdec_core *core = sess->core;
+	struct amvdec_core *core = sess->core;
 
 	if (mpeg4->workspace_vaddr) {
 		dma_free_coherent(core->dev, SIZE_WORKSPACE, mpeg4->workspace_vaddr, mpeg4->workspace_paddr);
@@ -137,11 +137,11 @@ static int codec_mpeg4_stop(struct vdec_session *sess)
 	return 0;
 }
 
-static irqreturn_t codec_mpeg4_isr(struct vdec_session *sess)
+static irqreturn_t codec_mpeg4_isr(struct amvdec_session *sess)
 {
 	u32 reg;
 	u32 buffer_index;
-	struct vdec_core *core = sess->core;
+	struct amvdec_core *core = sess->core;
 
 	reg = readl_relaxed(core->dos_base + MREG_FATAL_ERROR);
 	if (reg == 1)
@@ -153,7 +153,7 @@ static irqreturn_t codec_mpeg4_isr(struct vdec_session *sess)
 		readl_relaxed(core->dos_base + MP4_NOT_CODED_CNT);
 		readl_relaxed(core->dos_base + MP4_VOP_TIME_INC);
 		buffer_index = reg & 0x7;
-		vdec_dst_buf_done_idx(sess, buffer_index);
+		amvdec_dst_buf_done_idx(sess, buffer_index);
 		writel_relaxed(0, core->dos_base + MREG_BUFFEROUT);
 	}
 
@@ -162,7 +162,7 @@ static irqreturn_t codec_mpeg4_isr(struct vdec_session *sess)
 	return IRQ_HANDLED;
 }
 
-struct vdec_codec_ops codec_mpeg4_ops = {
+struct amvdec_codec_ops codec_mpeg4_ops = {
 	.start = codec_mpeg4_start,
 	.stop = codec_mpeg4_stop,
 	.isr = codec_mpeg4_isr,

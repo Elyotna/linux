@@ -17,9 +17,9 @@
 
 #define MC_SIZE	(4096 * 4)
 
-static int vdec_hevc_load_firmware(struct vdec_session *sess, const char* fwname)
+static int vdec_hevc_load_firmware(struct amvdec_session *sess, const char* fwname)
 {
-	struct vdec_core *core = sess->core;
+	struct amvdec_core *core = sess->core;
 	struct device *dev = core->dev_dec;
 	const struct firmware *fw;
 	static void *mc_addr;
@@ -69,9 +69,9 @@ release_firmware:
 	return ret;
 }
 
-static void vdec_hevc_stbuf_init(struct vdec_session *sess)
+static void vdec_hevc_stbuf_init(struct amvdec_session *sess)
 {
-	struct vdec_core *core = sess->core;
+	struct amvdec_core *core = sess->core;
 
 	writel_relaxed(readl_relaxed(core->dos_base + HEVC_STREAM_CONTROL) & ~1, core->dos_base + HEVC_STREAM_CONTROL);
 	writel_relaxed(sess->vififo_paddr, core->dos_base + HEVC_STREAM_START_ADDR);
@@ -81,9 +81,9 @@ static void vdec_hevc_stbuf_init(struct vdec_session *sess)
 }
 
 /* VDEC_HEVC specific ESPARSER configuration */
-static void vdec_hevc_conf_esparser(struct vdec_session *sess)
+static void vdec_hevc_conf_esparser(struct amvdec_session *sess)
 {
-	struct vdec_core *core = sess->core;
+	struct amvdec_core *core = sess->core;
 
 	/* set vififo_vbuf_rp_sel=>vdec_hevc */
 	writel_relaxed(3 << 1, core->dos_base + DOS_GEN_CTRL0);
@@ -92,15 +92,15 @@ static void vdec_hevc_conf_esparser(struct vdec_session *sess)
 	writel_relaxed(readl_relaxed(core->dos_base + HEVC_STREAM_FIFO_CTL) | (1 << 29), core->dos_base + HEVC_STREAM_FIFO_CTL);
 }
 
-static u32 vdec_hevc_vififo_level(struct vdec_session *sess)
+static u32 vdec_hevc_vififo_level(struct amvdec_session *sess)
 {
 	return readl_relaxed(sess->core->dos_base + HEVC_STREAM_LEVEL);
 }
 
-static int vdec_hevc_stop(struct vdec_session *sess)
+static int vdec_hevc_stop(struct amvdec_session *sess)
 {
-	struct vdec_core *core = sess->core;
-	struct vdec_codec_ops *codec_ops = sess->fmt_out->codec_ops;
+	struct amvdec_core *core = sess->core;
+	struct amvdec_codec_ops *codec_ops = sess->fmt_out->codec_ops;
 
 	/* Disable interrupt */
 	writel_relaxed(0, core->dos_base + HEVC_ASSIST_MBOX1_MASK);
@@ -123,11 +123,11 @@ static int vdec_hevc_stop(struct vdec_session *sess)
 	return 0;
 }
 
-static int vdec_hevc_start(struct vdec_session *sess)
+static int vdec_hevc_start(struct amvdec_session *sess)
 {
 	int ret;
-	struct vdec_core *core = sess->core;
-	struct vdec_codec_ops *codec_ops = sess->fmt_out->codec_ops;
+	struct amvdec_core *core = sess->core;
+	struct amvdec_codec_ops *codec_ops = sess->fmt_out->codec_ops;
 
 	clk_set_rate(core->vdec_hevc_clk, 666666666);
 	ret = clk_prepare_enable(core->vdec_hevc_clk);
@@ -172,7 +172,7 @@ static int vdec_hevc_start(struct vdec_session *sess)
 	return 0;
 }
 
-struct vdec_ops vdec_hevc_ops = {
+struct amvdec_ops vdec_hevc_ops = {
 	.start = vdec_hevc_start,
 	.stop = vdec_hevc_stop,
 	.conf_esparser = vdec_hevc_conf_esparser,

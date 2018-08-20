@@ -8,6 +8,6 @@
 
 #include "vdec.h"
 
-extern struct vdec_codec_ops codec_mjpeg_ops;
+extern struct amvdec_codec_ops codec_mjpeg_ops;
 
 #endif

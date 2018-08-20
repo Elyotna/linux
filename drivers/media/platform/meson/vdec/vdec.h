@@ -14,26 +14,24 @@
 
 #include "vdec_platform.h"
 
-#define REG_BUF_SIZE 21
-
 struct dummy_buf {
 	struct vb2_v4l2_buffer vb;
 	struct list_head list;
 };
 
-struct vdec_buffer {
+struct amvdec_buffer {
 	struct list_head list;
 	struct vb2_buffer *vb;
 };
 
-struct vdec_timestamp {
+struct amvdec_timestamp {
 	struct list_head list;
 	u64 ts;
 };
 
-struct vdec_session;
+struct amvdec_session;
 
-struct vdec_core {
+struct amvdec_core {
 	void __iomem *dos_base;
 	void __iomem *esparser_base;
 	void __iomem *dmc_base;
@@ -53,49 +51,49 @@ struct vdec_core {
 	struct video_device *vdev_dec;
 	struct v4l2_device v4l2_dev;
 	
-	struct vdec_session *cur_sess;
+	struct amvdec_session *cur_sess;
 	struct mutex lock;
 };
 
 /* Describes one of the VDECS (VDEC_1, VDEC_2, VDEC_HCODEC, VDEC_HEVC) */
-struct vdec_ops {
-	int (*start)(struct vdec_session *sess);
-	int (*stop)(struct vdec_session *sess);
-	void (*conf_esparser)(struct vdec_session *sess);
-	u32 (*vififo_level)(struct vdec_session *sess);
+struct amvdec_ops {
+	int (*start)(struct amvdec_session *sess);
+	int (*stop)(struct amvdec_session *sess);
+	void (*conf_esparser)(struct amvdec_session *sess);
+	u32 (*vififo_level)(struct amvdec_session *sess);
 };
 
 /* Describes one of the compression standard supported (H.264, HEVC..) */
-struct vdec_codec_ops {
-	int (*start)(struct vdec_session *sess);
-	int (*stop)(struct vdec_session *sess);
-	int (*load_extended_firmware)(struct vdec_session *sess, const u8 *data, u32 len);
-	u32 (*num_pending_bufs)(struct vdec_session *sess);
-	int (*can_recycle)(struct vdec_core *core);
-	void (*recycle)(struct vdec_core *core, u32 buf_idx);
-	void (*notify_dst_buffer)(struct vdec_session *sess, struct vb2_buffer *vb);
-	void (*drain)(struct vdec_session *sess);
-	irqreturn_t (*isr)(struct vdec_session *sess);
-	irqreturn_t (*threaded_isr)(struct vdec_session *sess);
+struct amvdec_codec_ops {
+	int (*start)(struct amvdec_session *sess);
+	int (*stop)(struct amvdec_session *sess);
+	int (*load_extended_firmware)(struct amvdec_session *sess, const u8 *data, u32 len);
+	u32 (*num_pending_bufs)(struct amvdec_session *sess);
+	int (*can_recycle)(struct amvdec_core *core);
+	void (*recycle)(struct amvdec_core *core, u32 buf_idx);
+	void (*notify_dst_buffer)(struct amvdec_session *sess, struct vb2_buffer *vb);
+	void (*drain)(struct amvdec_session *sess);
+	irqreturn_t (*isr)(struct amvdec_session *sess);
+	irqreturn_t (*threaded_isr)(struct amvdec_session *sess);
 };
 
 /* Describes one of the OUTPUT format that can be decoded */
-struct vdec_format {
+struct amvdec_format {
 	u32 pixfmt;
 	u32 min_buffers;
 	u32 max_buffers;
 	u32 max_width;
 	u32 max_height;
 
-	struct vdec_ops *vdec_ops;
-	struct vdec_codec_ops *codec_ops;
+	struct amvdec_ops *vdec_ops;
+	struct amvdec_codec_ops *codec_ops;
 
 	char *firmware_path;
 	u32 pixfmts_cap[4];
 };
 
-struct vdec_session {
-	struct vdec_core *core;
+struct amvdec_session {
+	struct amvdec_core *core;
 	
 	struct v4l2_fh fh;
 	struct v4l2_m2m_dev *m2m_dev;
@@ -103,7 +101,7 @@ struct vdec_session {
 	struct mutex lock;
 	struct mutex codec_lock;
 	
-	const struct vdec_format *fmt_out;
+	const struct amvdec_format *fmt_out;
 	u32 pixfmt_cap;
 
 	u32 width;
@@ -112,9 +110,6 @@ struct vdec_session {
 	u8 ycbcr_enc;
 	u8 quantization;
 	u8 xfer_func;
-
-	u32 num_input_bufs;
-	u32 num_output_bufs;
 
 	/* Number of buffers currently queued into ESPARSER */
 	atomic_t esparser_queued_bufs;
@@ -133,7 +128,7 @@ struct vdec_session {
 	 */
 	unsigned int should_stop;
 
-	/* Is set to 1 once the first keyframe has been parsed/decodeed */
+	/* Is set to 1 once the first keyframe has been parsed */
 	unsigned int keyframe_found;
 
 	/* Big contiguous area for the VIFIFO */
@@ -148,7 +143,7 @@ struct vdec_session {
 	/* Thread for recycling buffers into the hardware */
 	struct task_struct *recycle_thread;
 	
-	/* Buffers queued into the HW */
+	/* src buffers' timestamps */
 	struct list_head bufs;
 	spinlock_t bufs_spinlock;
 
@@ -159,12 +154,11 @@ struct vdec_session {
 	void *priv;
 };
 
-u32 vdec_get_output_size(struct vdec_session *sess);
-void vdec_dst_buf_done_idx(struct vdec_session *sess, u32 buf_idx);
-void vdec_dst_buf_done(struct vdec_session *sess, struct vb2_v4l2_buffer *vbuf);
-void vdec_add_ts_reorder(struct vdec_session *sess, u64 ts);
-void vdec_remove_ts(struct vdec_session *sess, u64 ts);
-void vdec_queue_recycle(struct vdec_session *sess, struct vb2_buffer *vb);
-void vdec_abort(struct vdec_session *sess);
+u32 amvdec_get_output_size(struct amvdec_session *sess);
+void amvdec_dst_buf_done_idx(struct amvdec_session *sess, u32 buf_idx);
+void amvdec_dst_buf_done(struct amvdec_session *sess, struct vb2_v4l2_buffer *vbuf);
+void amvdec_add_ts_reorder(struct amvdec_session *sess, u64 ts);
+void amvdec_remove_ts(struct amvdec_session *sess, u64 ts);
+void amvdec_abort(struct amvdec_session *sess);
 
 #endif

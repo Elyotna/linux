@@ -33,18 +33,18 @@ struct codec_mpeg12 {
 	dma_addr_t workspace_paddr;
 };
 
-static int codec_mpeg12_can_recycle(struct vdec_core *core)
+static int codec_mpeg12_can_recycle(struct amvdec_core *core)
 {
 	return !readl_relaxed(core->dos_base + MREG_BUFFERIN);
 }
 
-static void codec_mpeg12_recycle(struct vdec_core *core, u32 buf_idx)
+static void codec_mpeg12_recycle(struct amvdec_core *core, u32 buf_idx)
 {
 	writel_relaxed(buf_idx + 1, core->dos_base + MREG_BUFFERIN);
 }
 
-static int codec_mpeg12_start(struct vdec_session *sess) {
-	struct vdec_core *core = sess->core;
+static int codec_mpeg12_start(struct amvdec_session *sess) {
+	struct amvdec_core *core = sess->core;
 	struct codec_mpeg12 *mpeg12 = sess->priv;
 	int ret;
 
@@ -68,7 +68,7 @@ static int codec_mpeg12_start(struct vdec_session *sess) {
 
 	writel_relaxed((1 << 4), core->dos_base + POWER_CTL_VLD);
 
-	codec_helper_set_canvases(sess, core->dos_base + AV_SCRATCH_0);
+	amcodec_helper_set_canvases(sess, core->dos_base + AV_SCRATCH_0);
 	writel_relaxed(mpeg12->workspace_paddr + SIZE_CCBUF, core->dos_base + MREG_CO_MV_START);
 
 	writel_relaxed(0, core->dos_base + MPEG1_2_REG);
@@ -90,10 +90,10 @@ free_mpeg12:
 	return ret;
 }
 
-static int codec_mpeg12_stop(struct vdec_session *sess)
+static int codec_mpeg12_stop(struct amvdec_session *sess)
 {
 	struct codec_mpeg12 *mpeg12 = sess->priv;
-	struct vdec_core *core = sess->core;
+	struct amvdec_core *core = sess->core;
 
 	if (mpeg12->workspace_vaddr) {
 		dma_free_coherent(core->dev, SIZE_WORKSPACE, mpeg12->workspace_vaddr, mpeg12->workspace_paddr);
@@ -103,11 +103,11 @@ static int codec_mpeg12_stop(struct vdec_session *sess)
 	return 0;
 }
 
-static irqreturn_t codec_mpeg12_isr(struct vdec_session *sess)
+static irqreturn_t codec_mpeg12_isr(struct amvdec_session *sess)
 {
 	u32 reg;
 	u32 buffer_index;
-	struct vdec_core *core = sess->core;
+	struct amvdec_core *core = sess->core;
 
 	writel_relaxed(1, core->dos_base + ASSIST_MBOX1_CLR_REG);
 
@@ -124,14 +124,14 @@ static irqreturn_t codec_mpeg12_isr(struct vdec_session *sess)
 
 	sess->keyframe_found = 1;
 	buffer_index = ((reg & 0xf) - 1) & 7;
-	vdec_dst_buf_done_idx(sess, buffer_index);
+	amvdec_dst_buf_done_idx(sess, buffer_index);
 
 end:
 	writel_relaxed(0, core->dos_base + MREG_BUFFEROUT);
 	return IRQ_HANDLED;
 }
 
-struct vdec_codec_ops codec_mpeg12_ops = {
+struct amvdec_codec_ops codec_mpeg12_ops = {
 	.start = codec_mpeg12_start,
 	.stop = codec_mpeg12_stop,
 	.isr = codec_mpeg12_isr,

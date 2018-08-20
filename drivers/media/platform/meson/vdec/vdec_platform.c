@@ -14,7 +14,7 @@
 #include "codec_h264.h"
 #include "codec_hevc.h"
 
-static const struct vdec_format vdec_formats_gxbb[] = {
+static const struct amvdec_format vdec_formats_gxbb[] = {
 	{
 		.pixfmt = V4L2_PIX_FMT_H264,
 		.min_buffers = 16,
@@ -98,7 +98,7 @@ static const struct vdec_format vdec_formats_gxbb[] = {
 	},
 };
 
-static const struct vdec_format vdec_formats_gxl[] = {
+static const struct amvdec_format vdec_formats_gxl[] = {
 	{
 		.pixfmt = V4L2_PIX_FMT_H264,
 		.min_buffers = 16,
@@ -182,7 +182,7 @@ static const struct vdec_format vdec_formats_gxl[] = {
 	},
 };
 
-static const struct vdec_format vdec_formats_gxm[] = {
+static const struct amvdec_format vdec_formats_gxm[] = {
 	{
 		.pixfmt = V4L2_PIX_FMT_H264,
 		.min_buffers = 16,

@@ -15,12 +15,12 @@
 #define MREG_TO_AMRISC		AV_SCRATCH_8
 #define MREG_FROM_AMRISC	AV_SCRATCH_9
 
-static int codec_mjpeg_can_recycle(struct vdec_core *core)
+static int codec_mjpeg_can_recycle(struct amvdec_core *core)
 {
 	return !readl_relaxed(core->dos_base + MREG_TO_AMRISC);
 }
 
-static void codec_mjpeg_recycle(struct vdec_core *core, u32 buf_idx)
+static void codec_mjpeg_recycle(struct amvdec_core *core, u32 buf_idx)
 {
 	writel_relaxed(buf_idx + 1, core->dos_base + MREG_TO_AMRISC);
 }
@@ -38,7 +38,7 @@ static const uint32_t filt_coef[] = {
 	0x10303010
 };
 
-static void codec_mjpeg_init_scaler(struct vdec_core *core)
+static void codec_mjpeg_init_scaler(struct amvdec_core *core)
 {
 	int i;
 
@@ -84,9 +84,9 @@ static void codec_mjpeg_init_scaler(struct vdec_core *core)
 	writel_relaxed(0, core->dos_base + PSCALE_RST);
 }
 
-static int codec_mjpeg_start(struct vdec_session *sess)
+static int codec_mjpeg_start(struct amvdec_session *sess)
 {
-	struct vdec_core *core = sess->core;
+	struct amvdec_core *core = sess->core;
 
 	writel_relaxed((1 << 7) | (1 << 6), core->dos_base + DOS_SW_RESET0);
 	writel_relaxed(0, core->dos_base + DOS_SW_RESET0);
@@ -94,7 +94,7 @@ static int codec_mjpeg_start(struct vdec_session *sess)
 	writel_relaxed(12, core->dos_base + AV_SCRATCH_0);
 	writel_relaxed(0x031a, core->dos_base + AV_SCRATCH_1);
 
-	codec_helper_set_canvases(sess, core->dos_base + AV_SCRATCH_4);
+	amcodec_helper_set_canvases(sess, core->dos_base + AV_SCRATCH_4);
 	codec_mjpeg_init_scaler(core);
 
 	writel_relaxed(0, core->dos_base + MREG_TO_AMRISC);
@@ -111,16 +111,16 @@ static int codec_mjpeg_start(struct vdec_session *sess)
 	return 0;
 }
 
-static int codec_mjpeg_stop(struct vdec_session *sess)
+static int codec_mjpeg_stop(struct amvdec_session *sess)
 {
 	return 0;
 }
 
-static irqreturn_t codec_mjpeg_isr(struct vdec_session *sess)
+static irqreturn_t codec_mjpeg_isr(struct amvdec_session *sess)
 {
 	u32 reg;
 	u32 buffer_index;
-	struct vdec_core *core = sess->core;
+	struct amvdec_core *core = sess->core;
 
 	writel_relaxed(1, core->dos_base + ASSIST_MBOX1_CLR_REG);
 
@@ -129,13 +129,13 @@ static irqreturn_t codec_mjpeg_isr(struct vdec_session *sess)
 		return IRQ_HANDLED;
 
 	buffer_index = ((reg & 0x7) - 1) & 3;
-	vdec_dst_buf_done_idx(sess, buffer_index);
+	amvdec_dst_buf_done_idx(sess, buffer_index);
 
 	writel_relaxed(0, core->dos_base + MREG_FROM_AMRISC);
 	return IRQ_HANDLED;
 }
 
-struct vdec_codec_ops codec_mjpeg_ops = {
+struct amvdec_codec_ops codec_mjpeg_ops = {
 	.start = codec_mjpeg_start,
 	.stop = codec_mjpeg_stop,
 	.isr = codec_mjpeg_isr,

@@ -8,9 +8,9 @@
 
 #include "vdec.h"
 
-int esparser_init(struct platform_device *pdev, struct vdec_core *core);
-int esparser_power_up(struct vdec_session *sess);
-int esparser_queue_eos(struct vdec_session *sess);
+int esparser_init(struct platform_device *pdev, struct amvdec_core *core);
+int esparser_power_up(struct amvdec_session *sess);
+int esparser_queue_eos(struct amvdec_session *sess);
 void esparser_queue_all_src(struct work_struct *work);
 
 #endif

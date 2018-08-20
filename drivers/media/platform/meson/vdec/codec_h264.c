@@ -48,13 +48,13 @@ struct codec_h264 {
 	dma_addr_t sei_paddr;
 };
 
-static int codec_h264_can_recycle(struct vdec_core *core)
+static int codec_h264_can_recycle(struct amvdec_core *core)
 {
 	return !readl_relaxed(core->dos_base + AV_SCRATCH_7) ||
 	       !readl_relaxed(core->dos_base + AV_SCRATCH_8);
 }
 
-static void codec_h264_recycle(struct vdec_core *core, u32 buf_idx)
+static void codec_h264_recycle(struct amvdec_core *core, u32 buf_idx)
 {
 	/* Tell the decoder he can recycle this buffer.
 	 * AV_SCRATCH_8 serves the same purpose.
@@ -65,9 +65,9 @@ static void codec_h264_recycle(struct vdec_core *core, u32 buf_idx)
 		writel_relaxed(buf_idx + 1, core->dos_base + AV_SCRATCH_8);
 }
 
-static int codec_h264_start(struct vdec_session *sess) {
+static int codec_h264_start(struct amvdec_session *sess) {
 	u32 workspace_offset;
-	struct vdec_core *core = sess->core;
+	struct amvdec_core *core = sess->core;
 	struct codec_h264 *h264 = sess->priv;
 
 	/* Allocate some memory for the H.264 decoder's state */
@@ -129,10 +129,10 @@ static int codec_h264_start(struct vdec_session *sess) {
 	return 0;
 }
 
-static int codec_h264_stop(struct vdec_session *sess)
+static int codec_h264_stop(struct amvdec_session *sess)
 {
 	struct codec_h264 *h264 = sess->priv;
-	struct vdec_core *core = sess->core;
+	struct amvdec_core *core = sess->core;
 
 	if (h264->ext_fw_vaddr)
 		dma_free_coherent(core->dev, SIZE_EXT_FW, h264->ext_fw_vaddr, h264->ext_fw_paddr);
@@ -149,10 +149,10 @@ static int codec_h264_stop(struct vdec_session *sess)
 	return 0;
 }
 
-static int codec_h264_load_extended_firmware(struct vdec_session *sess, const u8 *data, u32 len)
+static int codec_h264_load_extended_firmware(struct amvdec_session *sess, const u8 *data, u32 len)
 {
 	struct codec_h264 *h264;
-	struct vdec_core *core = sess->core;
+	struct amvdec_core *core = sess->core;
 	
 	h264 = kzalloc(sizeof(*h264), GFP_KERNEL);
 	if (!h264)
@@ -177,13 +177,13 @@ static int codec_h264_load_extended_firmware(struct vdec_session *sess, const u8
 /* Configure the H.264 decoder when the esparser finished parsing
  * the first buffer.
  */
-static void codec_h264_set_param(struct vdec_session *sess) {
+static void codec_h264_set_param(struct amvdec_session *sess) {
 	u32 max_reference_size;
 	u32 parsed_info, mb_width, mb_height, mb_total;
 	u32 mb_mv_byte;
 	u32 actual_dpb_size = v4l2_m2m_num_dst_bufs_ready(sess->m2m_ctx);
 	u32 max_dpb_size = 4;
-	struct vdec_core *core = sess->core;
+	struct amvdec_core *core = sess->core;
 	struct codec_h264 *h264 = sess->priv;
 
 	sess->keyframe_found = 1;
@@ -213,7 +213,7 @@ static void codec_h264_set_param(struct vdec_session *sess) {
 	mb_height = (mb_height + 3) & 0xfffffffc;
 	mb_total = mb_width * mb_height;
 
-	codec_helper_set_canvases(sess, core->dos_base + ANC0_CANVAS_ADDR);
+	amcodec_helper_set_canvases(sess, core->dos_base + ANC0_CANVAS_ADDR);
 
 	if (max_reference_size > max_dpb_size)
 		max_dpb_size = max_reference_size;
@@ -227,7 +227,7 @@ static void codec_h264_set_param(struct vdec_session *sess) {
 	h264->ref_vaddr = dma_alloc_coherent(core->dev, h264->ref_size, &h264->ref_paddr, GFP_KERNEL);
 	if (!h264->ref_vaddr) {
 		dev_err(core->dev, "Failed to allocate memory for refs (%u)\n", h264->ref_size);
-		vdec_abort(sess);
+		amvdec_abort(sess);
 		return;
 	}
 
@@ -238,9 +238,9 @@ static void codec_h264_set_param(struct vdec_session *sess) {
 	writel_relaxed((max_reference_size << 24) | (actual_dpb_size << 16) | (max_dpb_size << 8), core->dos_base + AV_SCRATCH_0);
 }
 
-static void codec_h264_frames_ready(struct vdec_session *sess, u32 status)
+static void codec_h264_frames_ready(struct amvdec_session *sess, u32 status)
 {
-	struct vdec_core *core = sess->core;
+	struct amvdec_core *core = sess->core;
 	int error_count;
 	int error;
 	int num_frames;
@@ -269,13 +269,13 @@ static void codec_h264_frames_ready(struct vdec_session *sess, u32 status)
 			dev_info(core->dev, "Buffer %d decode error\n",
 				 buffer_index);
 
-		vdec_dst_buf_done_idx(sess, buffer_index);
+		amvdec_dst_buf_done_idx(sess, buffer_index);
 	}
 }
 
-static irqreturn_t codec_h264_threaded_isr(struct vdec_session *sess)
+static irqreturn_t codec_h264_threaded_isr(struct amvdec_session *sess)
 {
-	struct vdec_core *core = sess->core;
+	struct amvdec_core *core = sess->core;
 	u32 status;
 	u32 size;
 	u8 cmd;
@@ -317,20 +317,20 @@ static irqreturn_t codec_h264_threaded_isr(struct vdec_session *sess)
 
 	return IRQ_HANDLED;
 abort:
-	vdec_abort(sess);
+	amvdec_abort(sess);
 	return IRQ_HANDLED;
 }
 
-static irqreturn_t codec_h264_isr(struct vdec_session *sess)
+static irqreturn_t codec_h264_isr(struct amvdec_session *sess)
 {
-	struct vdec_core *core = sess->core;
+	struct amvdec_core *core = sess->core;
 
 	writel_relaxed(1, core->dos_base + ASSIST_MBOX1_CLR_REG);
 
 	return IRQ_WAKE_THREAD;
 }
 
-struct vdec_codec_ops codec_h264_ops = {
+struct amvdec_codec_ops codec_h264_ops = {
 	.start = codec_h264_start,
 	.stop = codec_h264_stop,
 	.load_extended_firmware = codec_h264_load_extended_firmware,

@@ -8,7 +8,7 @@
 
 #include "vdec.h"
 
-struct vdec_format;
+struct amvdec_format;
 
 enum vdec_revision {
 	VDEC_REVISION_GXBB,
@@ -17,7 +17,7 @@ enum vdec_revision {
 };
 
 struct vdec_platform {
-	const struct vdec_format *formats;
+	const struct amvdec_format *formats;
 	const u32 num_formats;
 	enum vdec_revision revision;
 };

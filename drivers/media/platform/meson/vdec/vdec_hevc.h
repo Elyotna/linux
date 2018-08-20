@@ -17,6 +17,6 @@
 
 #include "vdec.h"
 
-extern struct vdec_ops vdec_hevc_ops;
+extern struct amvdec_ops vdec_hevc_ops;
 
 #endif

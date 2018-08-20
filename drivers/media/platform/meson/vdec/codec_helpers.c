@@ -10,33 +10,36 @@
 #include "canvas.h"
 
 /* 4 KiB per 64x32 block */
-u32 codec_am21c_body_size(u32 width, u32 height)
+u32 amcodec_am21c_body_size(u32 width, u32 height)
 {
 	u32 width_64 = ALIGN(width, 64) / 64;
 	u32 height_32 = ALIGN(height, 32) / 32;
 
 	return SZ_4K * width_64 * height_32;
 }
+EXPORT_SYMBOL_GPL(amcodec_am21c_body_size);
 
 /* 32 bytes per 128x64 block */
-u32 codec_am21c_head_size(u32 width, u32 height)
+u32 amcodec_am21c_head_size(u32 width, u32 height)
 {
 	u32 width_128 = ALIGN(width, 128) / 128;
 	u32 height_64 = ALIGN(height, 64) / 64;
 
 	return 32 * width_128 * height_64;
 }
+EXPORT_SYMBOL_GPL(amcodec_am21c_head_size);
 
-u32 codec_am21c_size(u32 width, u32 height)
+u32 amcodec_am21c_size(u32 width, u32 height)
 {
-	return ALIGN(codec_am21c_body_size(width, height) +
-		     codec_am21c_head_size(width, height), SZ_64K);
+	return ALIGN(amcodec_am21c_body_size(width, height) +
+		     amcodec_am21c_head_size(width, height), SZ_64K);
 }
+EXPORT_SYMBOL_GPL(amcodec_am21c_size);
 
-void
-codec_helper_set_canvases_yuv420m(struct vdec_session *sess, void *reg_base)
+static void
+codec_helper_set_canvas_yuv420m(struct amvdec_session *sess, void *reg_base)
 {
-	struct vdec_core *core = sess->core;
+	struct amvdec_core *core = sess->core;
 	u32 width = ALIGN(sess->width, 64);
 	u32 height = ALIGN(sess->height, 64);
 	struct v4l2_m2m_buffer *buf;
@@ -77,9 +80,10 @@ codec_helper_set_canvases_yuv420m(struct vdec_session *sess, void *reg_base)
 	}
 }
 
-void codec_helper_set_canvases_nv12m(struct vdec_session *sess, void *reg_base)
+static void
+codec_helper_set_canvas_nv12m(struct amvdec_session *sess, void *reg_base)
 {
-	struct vdec_core *core = sess->core;
+	struct amvdec_core *core = sess->core;
 	u32 width = ALIGN(sess->width, 64);
 	u32 height = ALIGN(sess->height, 64);
 	struct v4l2_m2m_buffer *buf;
@@ -112,18 +116,19 @@ void codec_helper_set_canvases_nv12m(struct vdec_session *sess, void *reg_base)
 	}
 }
 
-void codec_helper_set_canvases(struct vdec_session *sess, void *reg_base)
+void amcodec_helper_set_canvases(struct amvdec_session *sess, void *reg_base)
 {
 	u32 pixfmt = sess->pixfmt_cap;
 
 	switch (pixfmt) {
 	case V4L2_PIX_FMT_NV12M:
-		codec_helper_set_canvases_nv12m(sess, reg_base);
+		codec_helper_set_canvas_nv12m(sess, reg_base);
 		break;
 	case V4L2_PIX_FMT_YUV420M:
-		codec_helper_set_canvases_yuv420m(sess, reg_base);
+		codec_helper_set_canvas_yuv420m(sess, reg_base);
 		break;
 	default:
 		dev_err(sess->core->dev, "Unsupported pixfmt %08X\n", pixfmt);
 	};
 }
+EXPORT_SYMBOL_GPL(amcodec_helper_set_canvases);

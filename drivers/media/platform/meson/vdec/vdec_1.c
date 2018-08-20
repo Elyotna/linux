@@ -33,12 +33,12 @@
 
 #define MC_SIZE			(4096 * 4)
 
-static int vdec_1_load_firmware(struct vdec_session *sess, const char* fwname)
+static int vdec_1_load_firmware(struct amvdec_session *sess, const char* fwname)
 {
 	const struct firmware *fw;
-	struct vdec_core *core = sess->core;
+	struct amvdec_core *core = sess->core;
 	struct device *dev = core->dev_dec;
-	struct vdec_codec_ops *codec_ops = sess->fmt_out->codec_ops;
+	struct amvdec_codec_ops *codec_ops = sess->fmt_out->codec_ops;
 	static void *mc_addr;
 	static dma_addr_t mc_addr_map;
 	int ret;
@@ -91,8 +91,8 @@ release_firmware:
 	return ret;
 }
 
-int vdec_1_stbuf_power_up(struct vdec_session *sess) {
-	struct vdec_core *core = sess->core;
+int vdec_1_stbuf_power_up(struct amvdec_session *sess) {
+	struct amvdec_core *core = sess->core;
 
 	writel_relaxed(0, core->dos_base + VLD_MEM_VIFIFO_CONTROL);
 	writel_relaxed(0, core->dos_base + VLD_MEM_VIFIFO_WRAP_COUNT);
@@ -116,9 +116,9 @@ int vdec_1_stbuf_power_up(struct vdec_session *sess) {
 	return 0;
 }
 
-static void vdec_1_conf_esparser(struct vdec_session *sess)
+static void vdec_1_conf_esparser(struct amvdec_session *sess)
 {
-	struct vdec_core *core = sess->core;
+	struct amvdec_core *core = sess->core;
 
 	/* VDEC_1 specific ESPARSER stuff */
 	writel_relaxed(0, core->dos_base + DOS_GEN_CTRL0); // set vififo_vbuf_rp_sel=>vdec
@@ -126,18 +126,18 @@ static void vdec_1_conf_esparser(struct vdec_session *sess)
 	writel_relaxed(readl_relaxed(core->dos_base + VLD_MEM_VIFIFO_BUF_CNTL) & ~1, core->dos_base + VLD_MEM_VIFIFO_BUF_CNTL);
 }
 
-static u32 vdec_1_vififo_level(struct vdec_session *sess)
+static u32 vdec_1_vififo_level(struct amvdec_session *sess)
 {
-	struct vdec_core *core = sess->core;
+	struct amvdec_core *core = sess->core;
 
 	return readl_relaxed(core->dos_base + VLD_MEM_VIFIFO_LEVEL);
 }
 
-static int vdec_1_start(struct vdec_session *sess)
+static int vdec_1_start(struct amvdec_session *sess)
 {
 	int ret;
-	struct vdec_core *core = sess->core;
-	struct vdec_codec_ops *codec_ops = sess->fmt_out->codec_ops;
+	struct amvdec_core *core = sess->core;
+	struct amvdec_codec_ops *codec_ops = sess->fmt_out->codec_ops;
 
 	clk_set_rate(core->vdec_1_clk, 666666666);
 	ret = clk_prepare_enable(core->vdec_1_clk);
@@ -188,10 +188,10 @@ static int vdec_1_start(struct vdec_session *sess)
 	return 0;
 }
 
-static int vdec_1_stop(struct vdec_session *sess)
+static int vdec_1_stop(struct amvdec_session *sess)
 {
-	struct vdec_core *core = sess->core;
-	struct vdec_codec_ops *codec_ops = sess->fmt_out->codec_ops;
+	struct amvdec_core *core = sess->core;
+	struct amvdec_codec_ops *codec_ops = sess->fmt_out->codec_ops;
 
 	writel_relaxed(0, core->dos_base + MPSR);
 	writel_relaxed(0, core->dos_base + CPSR);
@@ -232,7 +232,7 @@ static int vdec_1_stop(struct vdec_session *sess)
 	return 0;
 }
 
-struct vdec_ops vdec_1_ops = {
+struct amvdec_ops vdec_1_ops = {
 	.start = vdec_1_start,
 	.stop = vdec_1_stop,
 	.conf_esparser = vdec_1_conf_esparser,

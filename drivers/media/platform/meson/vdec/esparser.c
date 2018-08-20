@@ -102,7 +102,7 @@ static const u8 eos_tail_data[EOS_TAIL_BUF_SIZE] = {
 static irqreturn_t esparser_isr(int irq, void *dev)
 {
 	int int_status;
-	struct vdec_core *core = dev;
+	struct amvdec_core *core = dev;
 
 	int_status = readl_relaxed(core->esparser_base + PARSER_INT_STATUS);
 	writel_relaxed(int_status, core->esparser_base + PARSER_INT_STATUS);
@@ -133,7 +133,7 @@ static u32 esparser_pad_start_code(struct vb2_buffer *vb)
 		memset(vaddr, 0, pad_size);
 	}
 
-	memset(vaddr + pad_size + 4, 0, 508);
+	memset(vaddr + pad_size, 0, SEARCH_PATTERN_LEN);
 	vaddr[pad_size]     = 0x00;
 	vaddr[pad_size + 1] = 0x00;
 	vaddr[pad_size + 2] = 0x01;
@@ -143,24 +143,24 @@ static u32 esparser_pad_start_code(struct vb2_buffer *vb)
 }
 
 static int
-esparser_write_data(struct vdec_core *core, dma_addr_t addr, u32 size)
+esparser_write_data(struct amvdec_core *core, dma_addr_t addr, u32 size)
 {
 	writel_relaxed(0, core->esparser_base + PFIFO_RD_PTR);
 	writel_relaxed(0, core->esparser_base + PFIFO_WR_PTR);
 	writel_relaxed(ES_WRITE | ES_PARSER_START | ES_SEARCH | (size << ES_PACK_SIZE_BIT), core->esparser_base + PARSER_CONTROL);
 
 	writel_relaxed(addr, core->esparser_base + PARSER_FETCH_ADDR);
-	writel_relaxed((7 << FETCH_ENDIAN_BIT) | (size + 512), core->esparser_base + PARSER_FETCH_CMD);
+	writel_relaxed((7 << FETCH_ENDIAN_BIT) | (size + SEARCH_PATTERN_LEN), core->esparser_base + PARSER_FETCH_CMD);
 	search_done = 0;
 
 	return wait_event_interruptible_timeout(wq, search_done != 0, HZ/5);
 }
 
-static u32 esparser_vififo_get_free_space(struct vdec_session *sess)
+static u32 esparser_vififo_get_free_space(struct amvdec_session *sess)
 {
 	u32 vififo_usage;
-	struct vdec_ops *vdec_ops = sess->fmt_out->vdec_ops;
-	struct vdec_core *core = sess->core;
+	struct amvdec_ops *vdec_ops = sess->fmt_out->vdec_ops;
+	struct amvdec_core *core = sess->core;
 
 	vififo_usage  = vdec_ops->vififo_level(sess);
 	vififo_usage += readl_relaxed(core->esparser_base + PARSER_VIDEO_HOLE);
@@ -176,33 +176,33 @@ static u32 esparser_vififo_get_free_space(struct vdec_session *sess)
 	return sess->vififo_size - vififo_usage;
 }
 
-int esparser_queue_eos(struct vdec_session *sess)
+int esparser_queue_eos(struct amvdec_session *sess)
 {
 	struct device *dev = sess->core->dev;
-	struct vdec_core *core = sess->core;
+	struct amvdec_core *core = sess->core;
 	void *eos_vaddr;
 	dma_addr_t eos_paddr;
 	int ret;
 
-	eos_vaddr = dma_alloc_coherent(dev, EOS_TAIL_BUF_SIZE + 512, &eos_paddr, GFP_KERNEL);
+	eos_vaddr = dma_alloc_coherent(dev, EOS_TAIL_BUF_SIZE + SEARCH_PATTERN_LEN, &eos_paddr, GFP_KERNEL);
 	if (!eos_vaddr)
 		return -ENOMEM;
 
-	memset(eos_vaddr, 0, EOS_TAIL_BUF_SIZE + 512);
+	memset(eos_vaddr, 0, EOS_TAIL_BUF_SIZE + SEARCH_PATTERN_LEN);
 	memcpy(eos_vaddr, eos_tail_data, sizeof(eos_tail_data));
 	ret = esparser_write_data(core, eos_paddr, EOS_TAIL_BUF_SIZE);
-	dma_free_coherent(dev, EOS_TAIL_BUF_SIZE + 512,
+	dma_free_coherent(dev, EOS_TAIL_BUF_SIZE + SEARCH_PATTERN_LEN,
 			  eos_vaddr, eos_paddr);
 
 	return ret;
 }
 
-static int esparser_queue(struct vdec_session *sess, struct vb2_v4l2_buffer *vbuf)
+static int esparser_queue(struct amvdec_session *sess, struct vb2_v4l2_buffer *vbuf)
 {
 	int ret;
 	struct vb2_buffer *vb = &vbuf->vb2_buf;
-	struct vdec_core *core = sess->core;
-	struct vdec_codec_ops *codec_ops = sess->fmt_out->codec_ops;
+	struct amvdec_core *core = sess->core;
+	struct amvdec_codec_ops *codec_ops = sess->fmt_out->codec_ops;
 	u32 num_dst_bufs = 0;
 	u32 payload_size = vb2_get_plane_payload(vb, 0);
 	dma_addr_t phy = vb2_dma_contig_plane_dma_addr(vb, 0);
@@ -223,7 +223,7 @@ static int esparser_queue(struct vdec_session *sess, struct vb2_v4l2_buffer *vbu
 		return -EAGAIN;
 
 	v4l2_m2m_src_buf_remove_by_buf(sess->m2m_ctx, vbuf);
-	vdec_add_ts_reorder(sess, vb->timestamp);
+	amvdec_add_ts_reorder(sess, vb->timestamp);
 	dev_dbg(core->dev, "esparser: Queuing ts = %llu ; pld_size = %u\n",
 		vb->timestamp, payload_size);
 
@@ -240,7 +240,7 @@ static int esparser_queue(struct vdec_session *sess, struct vb2_v4l2_buffer *vbu
 		if (sess->keyframe_found)
 			atomic_inc(&sess->esparser_queued_bufs);
 		else
-			vdec_remove_ts(sess, vb->timestamp);
+			amvdec_remove_ts(sess, vb->timestamp);
 
 		vbuf->flags = 0;
 		vbuf->field = V4L2_FIELD_NONE;
@@ -249,7 +249,7 @@ static int esparser_queue(struct vdec_session *sess, struct vb2_v4l2_buffer *vbu
 	}
 
 	dev_warn(core->dev, "esparser: input parsing error\n");
-	vdec_remove_ts(sess, vb->timestamp);
+	amvdec_remove_ts(sess, vb->timestamp);
 	v4l2_m2m_buf_done(vbuf, VB2_BUF_STATE_ERROR);
 	writel_relaxed(0, core->esparser_base + PARSER_FETCH_CMD);
 
@@ -259,8 +259,8 @@ static int esparser_queue(struct vdec_session *sess, struct vb2_v4l2_buffer *vbu
 void esparser_queue_all_src(struct work_struct *work)
 {
 	struct v4l2_m2m_buffer *buf, *n;
-	struct vdec_session *sess =
-		container_of(work, struct vdec_session, esparser_queue_work);
+	struct amvdec_session *sess =
+		container_of(work, struct amvdec_session, esparser_queue_work);
 
 	mutex_lock(&sess->lock);
 	v4l2_m2m_for_each_src_buf_safe(sess->m2m_ctx, buf, n) {
@@ -270,10 +270,10 @@ void esparser_queue_all_src(struct work_struct *work)
 	mutex_unlock(&sess->lock);
 }
 
-int esparser_power_up(struct vdec_session *sess)
+int esparser_power_up(struct amvdec_session *sess)
 {
-	struct vdec_core *core = sess->core;
-	struct vdec_ops *vdec_ops = sess->fmt_out->vdec_ops;
+	struct amvdec_core *core = sess->core;
+	struct amvdec_ops *vdec_ops = sess->fmt_out->vdec_ops;
 
 	reset_control_reset(core->esparser_reset);
 	writel_relaxed((10 << PS_CFG_PFIFO_EMPTY_CNT_BIT) |
@@ -308,7 +308,7 @@ int esparser_power_up(struct vdec_session *sess)
 	return 0;
 }
 
-int esparser_init(struct platform_device *pdev, struct vdec_core *core)
+int esparser_init(struct platform_device *pdev, struct amvdec_core *core)
 {
 	struct device *dev = &pdev->dev;
 	int ret;
