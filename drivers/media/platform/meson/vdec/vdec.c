@@ -594,9 +594,9 @@ vdec_decoder_cmd(struct file *file, void *fh, struct v4l2_decoder_cmd *cmd)
 		return ret;
 
 	mutex_lock(&sess->lock);
-
 	if (!(sess->streamon_out & sess->streamon_cap))
 		goto unlock;
+	mutex_unlock(&sess->lock);
 
 	dev_dbg(sess->core->dev, "Received V4L2_DEC_CMD_STOP\n");
 	sess->should_stop = 1;
@@ -611,6 +611,7 @@ vdec_decoder_cmd(struct file *file, void *fh, struct v4l2_decoder_cmd *cmd)
 	       sess->last_irq_jiffies + msecs_to_jiffies(100)))
 		msleep(100);
 
+	mutex_lock(&sess->lock);
 	if (codec_ops->drain)
 		codec_ops->drain(sess);
 	else
