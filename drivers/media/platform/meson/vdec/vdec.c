@@ -3,8 +3,6 @@
  * Copyright (C) 2018 Maxime Jourdan <maxi.jourdan@wanadoo.fr>
  */
 
-#define DEBUG
-
 #include <linux/of_device.h>
 #include <linux/clk.h>
 #include <linux/io.h>
