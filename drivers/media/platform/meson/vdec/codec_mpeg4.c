@@ -40,7 +40,7 @@ static int codec_mpeg4_can_recycle(struct amvdec_core *core)
 
 static void codec_mpeg4_recycle(struct amvdec_core *core, u32 buf_idx)
 {
-	writel_relaxed(~(1 << buf_idx), core->dos_base + MREG_BUFFERIN);
+	amvdec_write_dos(core, MREG_BUFFERIN, ~(1 << buf_idx));
 }
 
 /* The MPEG4 canvas regs are not contiguous,
@@ -101,21 +101,21 @@ static int codec_mpeg4_start(struct amvdec_session *sess) {
 		goto free_mpeg4;
 	}
 
-	writel_relaxed((1<<7) | (1<<6), core->dos_base + DOS_SW_RESET0);
-	writel_relaxed(0, core->dos_base + DOS_SW_RESET0);
+	amvdec_write_dos(core, DOS_SW_RESET0, (1<<7) | (1<<6));
+	amvdec_write_dos(core, DOS_SW_RESET0, 0);
 	readl_relaxed(core->dos_base + DOS_SW_RESET0);
 
 	codec_mpeg4_set_canvases(sess);
 
-	writel_relaxed(mpeg4->workspace_paddr - DCAC_BUFF_START_IP, core->dos_base + MEM_OFFSET_REG);
-	writel_relaxed(0, core->dos_base + PSCALE_CTRL);
-	writel_relaxed(0, core->dos_base + MP4_NOT_CODED_CNT);
-	writel_relaxed(0, core->dos_base + MREG_BUFFERIN);
-	writel_relaxed(0, core->dos_base + MREG_BUFFEROUT);
-	writel_relaxed(0, core->dos_base + MREG_FATAL_ERROR);
-	writel_relaxed(1, core->dos_base + ASSIST_MBOX1_CLR_REG);
-	writel_relaxed(1, core->dos_base + ASSIST_MBOX1_MASK);
-	writel_relaxed(0x404038aa, core->dos_base + MDEC_PIC_DC_THRESH);
+	amvdec_write_dos(core, MEM_OFFSET_REG, mpeg4->workspace_paddr - DCAC_BUFF_START_IP);
+	amvdec_write_dos(core, PSCALE_CTRL, 0);
+	amvdec_write_dos(core, MP4_NOT_CODED_CNT, 0);
+	amvdec_write_dos(core, MREG_BUFFERIN, 0);
+	amvdec_write_dos(core, MREG_BUFFEROUT, 0);
+	amvdec_write_dos(core, MREG_FATAL_ERROR, 0);
+	amvdec_write_dos(core, ASSIST_MBOX1_CLR_REG, 1);
+	amvdec_write_dos(core, ASSIST_MBOX1_MASK, 1);
+	amvdec_write_dos(core, MDEC_PIC_DC_THRESH, 0x404038aa);
 
 	return 0;
 
@@ -154,10 +154,10 @@ static irqreturn_t codec_mpeg4_isr(struct amvdec_session *sess)
 		readl_relaxed(core->dos_base + MP4_VOP_TIME_INC);
 		buffer_index = reg & 0x7;
 		amvdec_dst_buf_done_idx(sess, buffer_index);
-		writel_relaxed(0, core->dos_base + MREG_BUFFEROUT);
+		amvdec_write_dos(core, MREG_BUFFEROUT, 0);
 	}
 
-	writel_relaxed(1, core->dos_base + ASSIST_MBOX1_CLR_REG);
+	amvdec_write_dos(core, ASSIST_MBOX1_CLR_REG, 1);
 
 	return IRQ_HANDLED;
 }

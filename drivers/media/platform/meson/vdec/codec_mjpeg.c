@@ -22,7 +22,7 @@ static int codec_mjpeg_can_recycle(struct amvdec_core *core)
 
 static void codec_mjpeg_recycle(struct amvdec_core *core, u32 buf_idx)
 {
-	writel_relaxed(buf_idx + 1, core->dos_base + MREG_TO_AMRISC);
+	amvdec_write_dos(core, MREG_TO_AMRISC, buf_idx + 1);
 }
 
 /* 4 point triangle */
@@ -43,67 +43,67 @@ static void codec_mjpeg_init_scaler(struct amvdec_core *core)
 	int i;
 
 	/* PSCALE cbus bmem enable */
-	writel_relaxed(0xc000, core->dos_base + PSCALE_CTRL);
+	amvdec_write_dos(core, PSCALE_CTRL, 0xc000);
 
-	writel_relaxed(0, core->dos_base + PSCALE_BMEM_ADDR);
+	amvdec_write_dos(core, PSCALE_BMEM_ADDR, 0);
 	for (i = 0; i < ARRAY_SIZE(filt_coef); ++i) {
-		writel_relaxed(0, core->dos_base + PSCALE_BMEM_DAT);
-		writel_relaxed(filt_coef[i], core->dos_base + PSCALE_BMEM_DAT);
+		amvdec_write_dos(core, PSCALE_BMEM_DAT, 0);
+		amvdec_write_dos(core, PSCALE_BMEM_DAT, filt_coef[i]);
 	}
 
-	writel_relaxed(74, core->dos_base + PSCALE_BMEM_ADDR);
-	writel_relaxed(0x0008, core->dos_base + PSCALE_BMEM_DAT);
-	writel_relaxed(0x60000000, core->dos_base + PSCALE_BMEM_DAT);
+	amvdec_write_dos(core, PSCALE_BMEM_ADDR, 74);
+	amvdec_write_dos(core, PSCALE_BMEM_DAT, 0x0008);
+	amvdec_write_dos(core, PSCALE_BMEM_DAT, 0x60000000);
 
-	writel_relaxed(82, core->dos_base + PSCALE_BMEM_ADDR);
-	writel_relaxed(0x0008, core->dos_base + PSCALE_BMEM_DAT);
-	writel_relaxed(0x60000000, core->dos_base + PSCALE_BMEM_DAT);
+	amvdec_write_dos(core, PSCALE_BMEM_ADDR, 82);
+	amvdec_write_dos(core, PSCALE_BMEM_DAT, 0x0008);
+	amvdec_write_dos(core, PSCALE_BMEM_DAT, 0x60000000);
 
-	writel_relaxed(78, core->dos_base + PSCALE_BMEM_ADDR);
-	writel_relaxed(0x0008, core->dos_base + PSCALE_BMEM_DAT);
-	writel_relaxed(0x60000000, core->dos_base + PSCALE_BMEM_DAT);
+	amvdec_write_dos(core, PSCALE_BMEM_ADDR, 78);
+	amvdec_write_dos(core, PSCALE_BMEM_DAT, 0x0008);
+	amvdec_write_dos(core, PSCALE_BMEM_DAT, 0x60000000);
 
-	writel_relaxed(86, core->dos_base + PSCALE_BMEM_ADDR);
-	writel_relaxed(0x0008, core->dos_base + PSCALE_BMEM_DAT);
-	writel_relaxed(0x60000000, core->dos_base + PSCALE_BMEM_DAT);
+	amvdec_write_dos(core, PSCALE_BMEM_ADDR, 86);
+	amvdec_write_dos(core, PSCALE_BMEM_DAT, 0x0008);
+	amvdec_write_dos(core, PSCALE_BMEM_DAT, 0x60000000);
 
-	writel_relaxed(73, core->dos_base + PSCALE_BMEM_ADDR);
-	writel_relaxed(0x10000, core->dos_base + PSCALE_BMEM_DAT);
-	writel_relaxed(81, core->dos_base + PSCALE_BMEM_ADDR);
-	writel_relaxed(0x10000, core->dos_base + PSCALE_BMEM_DAT);
+	amvdec_write_dos(core, PSCALE_BMEM_ADDR, 73);
+	amvdec_write_dos(core, PSCALE_BMEM_DAT, 0x10000);
+	amvdec_write_dos(core, PSCALE_BMEM_ADDR, 81);
+	amvdec_write_dos(core, PSCALE_BMEM_DAT, 0x10000);
 
-	writel_relaxed(77, core->dos_base + PSCALE_BMEM_ADDR);
-	writel_relaxed(0x10000, core->dos_base + PSCALE_BMEM_DAT);
-	writel_relaxed(85, core->dos_base + PSCALE_BMEM_ADDR);
-	writel_relaxed(0x10000, core->dos_base + PSCALE_BMEM_DAT);
+	amvdec_write_dos(core, PSCALE_BMEM_ADDR, 77);
+	amvdec_write_dos(core, PSCALE_BMEM_DAT, 0x10000);
+	amvdec_write_dos(core, PSCALE_BMEM_ADDR, 85);
+	amvdec_write_dos(core, PSCALE_BMEM_DAT, 0x10000);
 
-	writel_relaxed((1 << 10), core->dos_base + DOS_SW_RESET0);
-	writel_relaxed(0, core->dos_base + DOS_SW_RESET0);
+	amvdec_write_dos(core, DOS_SW_RESET0, (1 << 10));
+	amvdec_write_dos(core, DOS_SW_RESET0, 0);
 
-	writel_relaxed(0x7, core->dos_base + PSCALE_RST);
-	writel_relaxed(0, core->dos_base + PSCALE_RST);
+	amvdec_write_dos(core, PSCALE_RST, 0x7);
+	amvdec_write_dos(core, PSCALE_RST, 0);
 }
 
 static int codec_mjpeg_start(struct amvdec_session *sess)
 {
 	struct amvdec_core *core = sess->core;
 
-	writel_relaxed((1 << 7) | (1 << 6), core->dos_base + DOS_SW_RESET0);
-	writel_relaxed(0, core->dos_base + DOS_SW_RESET0);
+	amvdec_write_dos(core, DOS_SW_RESET0, (1 << 7) | (1 << 6));
+	amvdec_write_dos(core, DOS_SW_RESET0, 0);
 
-	writel_relaxed(12, core->dos_base + AV_SCRATCH_0);
-	writel_relaxed(0x031a, core->dos_base + AV_SCRATCH_1);
+	amvdec_write_dos(core, AV_SCRATCH_0, 12);
+	amvdec_write_dos(core, AV_SCRATCH_1, 0x031a);
 
 	amcodec_helper_set_canvases(sess, core->dos_base + AV_SCRATCH_4);
 	codec_mjpeg_init_scaler(core);
 
-	writel_relaxed(0, core->dos_base + MREG_TO_AMRISC);
-	writel_relaxed(0, core->dos_base + MREG_FROM_AMRISC);
-	writel_relaxed(0xffff, core->dos_base + MCPU_INTR_MSK);
-	writel_relaxed((sess->height << 4) | 0x8000, core->dos_base + MREG_DECODE_PARAM);
-	writel_relaxed(1, core->dos_base + ASSIST_MBOX1_CLR_REG);
-	writel_relaxed(1, core->dos_base + ASSIST_MBOX1_MASK);
-	writel_relaxed(8, core->dos_base + VDEC_ASSIST_AMR1_INT8);
+	amvdec_write_dos(core, MREG_TO_AMRISC, 0);
+	amvdec_write_dos(core, MREG_FROM_AMRISC, 0);
+	amvdec_write_dos(core, MCPU_INTR_MSK, 0xffff);
+	amvdec_write_dos(core, MREG_DECODE_PARAM, (sess->height << 4) | 0x8000);
+	amvdec_write_dos(core, ASSIST_MBOX1_CLR_REG, 1);
+	amvdec_write_dos(core, ASSIST_MBOX1_MASK, 1);
+	amvdec_write_dos(core, VDEC_ASSIST_AMR1_INT8, 8);
 
 	/* Intra-only codec */
 	sess->keyframe_found = 1;
@@ -122,7 +122,7 @@ static irqreturn_t codec_mjpeg_isr(struct amvdec_session *sess)
 	u32 buffer_index;
 	struct amvdec_core *core = sess->core;
 
-	writel_relaxed(1, core->dos_base + ASSIST_MBOX1_CLR_REG);
+	amvdec_write_dos(core, ASSIST_MBOX1_CLR_REG, 1);
 
 	reg = readl_relaxed(core->dos_base + MREG_FROM_AMRISC);
 	if (!(reg & 0x7))
@@ -131,7 +131,7 @@ static irqreturn_t codec_mjpeg_isr(struct amvdec_session *sess)
 	buffer_index = ((reg & 0x7) - 1) & 3;
 	amvdec_dst_buf_done_idx(sess, buffer_index);
 
-	writel_relaxed(0, core->dos_base + MREG_FROM_AMRISC);
+	amvdec_write_dos(core, MREG_FROM_AMRISC, 0);
 	return IRQ_HANDLED;
 }
 

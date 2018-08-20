@@ -924,6 +924,18 @@ static const struct v4l2_file_operations vdec_fops = {
 #endif
 };
 
+void amvdec_write_dos(struct amvdec_core *core, u32 reg, u32 val)
+{
+	writel_relaxed(val, core->dos_base + reg);
+}
+EXPORT_SYMBOL_GPL(amvdec_write_dos);
+
+void amvdec_write_parser(struct amvdec_core *core, u32 reg, u32 val)
+{
+	writel_relaxed(val, core->esparser_base + reg);
+}
+EXPORT_SYMBOL_GPL(amvdec_write_parser);
+
 static irqreturn_t vdec_isr(int irq, void *data)
 {
 	struct amvdec_core *core = data;

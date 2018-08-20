@@ -49,12 +49,12 @@ static int vdec_hevc_load_firmware(struct amvdec_session *sess, const char* fwna
 
 	memcpy(mc_addr, fw->data, MC_SIZE);
 
-	writel_relaxed(0, core->dos_base + HEVC_MPSR);
-	writel_relaxed(0, core->dos_base + HEVC_CPSR);
+	amvdec_write_dos(core, HEVC_MPSR, 0);
+	amvdec_write_dos(core, HEVC_CPSR, 0);
 
-	writel_relaxed(mc_addr_map, core->dos_base + HEVC_IMEM_DMA_ADR);
-	writel_relaxed(MC_SIZE / 4, core->dos_base + HEVC_IMEM_DMA_COUNT);
-	writel_relaxed((0x8000 | (7 << 16)), core->dos_base + HEVC_IMEM_DMA_CTRL);
+	amvdec_write_dos(core, HEVC_IMEM_DMA_ADR, mc_addr_map);
+	amvdec_write_dos(core, HEVC_IMEM_DMA_COUNT, MC_SIZE / 4);
+	amvdec_write_dos(core, HEVC_IMEM_DMA_CTRL, (0x8000 | (7 << 16)));
 
 	while (--i && readl(core->dos_base + HEVC_IMEM_DMA_CTRL) & 0x8000) { }
 
@@ -73,11 +73,11 @@ static void vdec_hevc_stbuf_init(struct amvdec_session *sess)
 {
 	struct amvdec_core *core = sess->core;
 
-	writel_relaxed(readl_relaxed(core->dos_base + HEVC_STREAM_CONTROL) & ~1, core->dos_base + HEVC_STREAM_CONTROL);
-	writel_relaxed(sess->vififo_paddr, core->dos_base + HEVC_STREAM_START_ADDR);
-	writel_relaxed(sess->vififo_paddr + sess->vififo_size, core->dos_base + HEVC_STREAM_END_ADDR);
-	writel_relaxed(sess->vififo_paddr, core->dos_base + HEVC_STREAM_RD_PTR);
-	writel_relaxed(sess->vififo_paddr, core->dos_base + HEVC_STREAM_WR_PTR);
+	amvdec_write_dos(core, HEVC_STREAM_CONTROL, readl_relaxed(core->dos_base + HEVC_STREAM_CONTROL) & ~1);
+	amvdec_write_dos(core, HEVC_STREAM_START_ADDR, sess->vififo_paddr);
+	amvdec_write_dos(core, HEVC_STREAM_END_ADDR, sess->vififo_paddr + sess->vififo_size);
+	amvdec_write_dos(core, HEVC_STREAM_RD_PTR, sess->vififo_paddr);
+	amvdec_write_dos(core, HEVC_STREAM_WR_PTR, sess->vififo_paddr);
 }
 
 /* VDEC_HEVC specific ESPARSER configuration */
@@ -86,10 +86,10 @@ static void vdec_hevc_conf_esparser(struct amvdec_session *sess)
 	struct amvdec_core *core = sess->core;
 
 	/* set vififo_vbuf_rp_sel=>vdec_hevc */
-	writel_relaxed(3 << 1, core->dos_base + DOS_GEN_CTRL0);
-	writel_relaxed(readl_relaxed(core->dos_base + HEVC_STREAM_CONTROL) | (1 << 3), core->dos_base + HEVC_STREAM_CONTROL);
-	writel_relaxed(readl_relaxed(core->dos_base + HEVC_STREAM_CONTROL) | 1, core->dos_base + HEVC_STREAM_CONTROL);
-	writel_relaxed(readl_relaxed(core->dos_base + HEVC_STREAM_FIFO_CTL) | (1 << 29), core->dos_base + HEVC_STREAM_FIFO_CTL);
+	amvdec_write_dos(core, DOS_GEN_CTRL0, 3 << 1);
+	amvdec_write_dos(core, HEVC_STREAM_CONTROL, readl_relaxed(core->dos_base + HEVC_STREAM_CONTROL) | (1 << 3));
+	amvdec_write_dos(core, HEVC_STREAM_CONTROL, readl_relaxed(core->dos_base + HEVC_STREAM_CONTROL) | 1);
+	amvdec_write_dos(core, HEVC_STREAM_FIFO_CTL, readl_relaxed(core->dos_base + HEVC_STREAM_FIFO_CTL) | (1 << 29));
 }
 
 static u32 vdec_hevc_vififo_level(struct amvdec_session *sess)
@@ -103,9 +103,9 @@ static int vdec_hevc_stop(struct amvdec_session *sess)
 	struct amvdec_codec_ops *codec_ops = sess->fmt_out->codec_ops;
 
 	/* Disable interrupt */
-	writel_relaxed(0, core->dos_base + HEVC_ASSIST_MBOX1_MASK);
+	amvdec_write_dos(core, HEVC_ASSIST_MBOX1_MASK, 0);
 	/* Disable firmware processor */
-	writel_relaxed(0, core->dos_base + HEVC_MPSR);
+	amvdec_write_dos(core, HEVC_MPSR, 0);
 
 	codec_ops->stop(sess);
 
@@ -113,7 +113,7 @@ static int vdec_hevc_stop(struct amvdec_session *sess)
 	regmap_update_bits(core->regmap_ao, AO_RTI_GEN_PWR_ISO0, 0xc00, 0xc00);
 
 	/* VDEC_HEVC Memories */
-	writel_relaxed(0xffffffffUL, core->dos_base + DOS_MEM_PD_HEVC);
+	amvdec_write_dos(core, DOS_MEM_PD_HEVC, 0xffffffffUL);
 
 	regmap_update_bits(core->regmap_ao, AO_RTI_GEN_PWR_SLEEP0,
 		GEN_PWR_VDEC_HEVC, GEN_PWR_VDEC_HEVC);
@@ -139,19 +139,19 @@ static int vdec_hevc_start(struct amvdec_session *sess)
 	udelay(10);
 
 	/* Reset VDEC_HEVC*/
-	writel_relaxed(0xffffffff, core->dos_base + DOS_SW_RESET3);
-	writel_relaxed(0x00000000, core->dos_base + DOS_SW_RESET3);
+	amvdec_write_dos(core, DOS_SW_RESET3, 0xffffffff);
+	amvdec_write_dos(core, DOS_SW_RESET3, 0x00000000);
 
-	writel_relaxed(0xffffffff, core->dos_base + DOS_GCLK_EN3);
+	amvdec_write_dos(core, DOS_GCLK_EN3, 0xffffffff);
 
 	/* VDEC_HEVC Memories */
-	writel_relaxed(0x00000000, core->dos_base + DOS_MEM_PD_HEVC);
+	amvdec_write_dos(core, DOS_MEM_PD_HEVC, 0x00000000);
 
 	/* Remove VDEC_HEVC Isolation */
 	regmap_update_bits(core->regmap_ao, AO_RTI_GEN_PWR_ISO0, 0xc00, 0);
 
-	writel_relaxed(0xffffffff, core->dos_base + DOS_SW_RESET3);
-	writel_relaxed(0x00000000, core->dos_base + DOS_SW_RESET3);
+	amvdec_write_dos(core, DOS_SW_RESET3, 0xffffffff);
+	amvdec_write_dos(core, DOS_SW_RESET3, 0x00000000);
 
 	vdec_hevc_stbuf_init(sess);
 
@@ -163,11 +163,11 @@ static int vdec_hevc_start(struct amvdec_session *sess)
 
 	codec_ops->start(sess);
 
-	writel_relaxed((1<<12)|(1<<11), core->dos_base + DOS_SW_RESET3);
-	writel_relaxed(0, core->dos_base + DOS_SW_RESET3);
+	amvdec_write_dos(core, DOS_SW_RESET3, (1<<12)|(1<<11));
+	amvdec_write_dos(core, DOS_SW_RESET3, 0);
 	readl_relaxed(core->dos_base + DOS_SW_RESET3);
 
-	writel_relaxed(1, core->dos_base + HEVC_MPSR);
+	amvdec_write_dos(core, HEVC_MPSR, 1);
 
 	return 0;
 }

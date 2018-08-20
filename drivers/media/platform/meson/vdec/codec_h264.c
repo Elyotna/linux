@@ -60,9 +60,9 @@ static void codec_h264_recycle(struct amvdec_core *core, u32 buf_idx)
 	 * AV_SCRATCH_8 serves the same purpose.
 	 */
 	if (!readl_relaxed(core->dos_base + AV_SCRATCH_7))
-		writel_relaxed(buf_idx + 1, core->dos_base + AV_SCRATCH_7);
+		amvdec_write_dos(core, AV_SCRATCH_7, buf_idx + 1);
 	else
-		writel_relaxed(buf_idx + 1, core->dos_base + AV_SCRATCH_8);
+		amvdec_write_dos(core, AV_SCRATCH_8, buf_idx + 1);
 }
 
 static int codec_h264_start(struct amvdec_session *sess) {
@@ -89,41 +89,41 @@ static int codec_h264_start(struct amvdec_session *sess) {
 	while (readl_relaxed(core->dos_base + DCAC_DMA_CTRL) & 0x8000) { }
 	while (readl_relaxed(core->dos_base + LMEM_DMA_CTRL) & 0x8000) { }
 
-	writel_relaxed((1<<7) | (1<<6) | (1<<4), core->dos_base + DOS_SW_RESET0);
-	writel_relaxed(0, core->dos_base + DOS_SW_RESET0);
+	amvdec_write_dos(core, DOS_SW_RESET0, (1<<7) | (1<<6) | (1<<4));
+	amvdec_write_dos(core, DOS_SW_RESET0, 0);
 	readl_relaxed(core->dos_base + DOS_SW_RESET0);
 
-	writel_relaxed((1<<7) | (1<<6) | (1<<4), core->dos_base + DOS_SW_RESET0);
-	writel_relaxed(0, core->dos_base + DOS_SW_RESET0);
-	writel_relaxed((1<<9) | (1<<8), core->dos_base + DOS_SW_RESET0);
-	writel_relaxed(0, core->dos_base + DOS_SW_RESET0);
+	amvdec_write_dos(core, DOS_SW_RESET0, (1<<7) | (1<<6) | (1<<4));
+	amvdec_write_dos(core, DOS_SW_RESET0, 0);
+	amvdec_write_dos(core, DOS_SW_RESET0, (1<<9) | (1<<8));
+	amvdec_write_dos(core, DOS_SW_RESET0, 0);
 	readl_relaxed(core->dos_base + DOS_SW_RESET0);
 
-	writel_relaxed(readl_relaxed(core->dos_base + POWER_CTL_VLD) | (1 << 9) | (1 << 6), core->dos_base + POWER_CTL_VLD);
+	amvdec_write_dos(core, POWER_CTL_VLD, readl_relaxed(core->dos_base + POWER_CTL_VLD) | (1 << 9) | (1 << 6));
 
-	writel_relaxed(0, core->dos_base + PSCALE_CTRL);
-	writel_relaxed(0, core->dos_base + AV_SCRATCH_0);
+	amvdec_write_dos(core, PSCALE_CTRL, 0);
+	amvdec_write_dos(core, AV_SCRATCH_0, 0);
 
 	workspace_offset = h264->workspace_paddr - WORKSPACE_BUF_OFFSET;
-	writel_relaxed(workspace_offset, core->dos_base + AV_SCRATCH_1);
-	writel_relaxed(h264->ext_fw_paddr, core->dos_base + AV_SCRATCH_G);
-	writel_relaxed(h264->sei_paddr - workspace_offset, core->dos_base + AV_SCRATCH_I);
+	amvdec_write_dos(core, AV_SCRATCH_1, workspace_offset);
+	amvdec_write_dos(core, AV_SCRATCH_G, h264->ext_fw_paddr);
+	amvdec_write_dos(core, AV_SCRATCH_I, h264->sei_paddr - workspace_offset);
 
-	writel_relaxed(0, core->dos_base + AV_SCRATCH_7);
-	writel_relaxed(0, core->dos_base + AV_SCRATCH_8);
-	writel_relaxed(0, core->dos_base + AV_SCRATCH_9);
+	amvdec_write_dos(core, AV_SCRATCH_7, 0);
+	amvdec_write_dos(core, AV_SCRATCH_8, 0);
+	amvdec_write_dos(core, AV_SCRATCH_9, 0);
 
 	/* Enable "error correction", don't know what it means */
-	writel_relaxed((readl_relaxed(core->dos_base + AV_SCRATCH_F) & 0xffffffc3) | (1 << 4) | (1 << 7), core->dos_base + AV_SCRATCH_F);
+	amvdec_write_dos(core, AV_SCRATCH_F, (readl_relaxed(core->dos_base + AV_SCRATCH_F) & 0xffffffc3) | (1 << 4) | (1 << 7));
 
 	/* Enable IRQ */
-	writel_relaxed(1, core->dos_base + ASSIST_MBOX1_CLR_REG);
-	writel_relaxed(1, core->dos_base + ASSIST_MBOX1_MASK);
+	amvdec_write_dos(core, ASSIST_MBOX1_CLR_REG, 1);
+	amvdec_write_dos(core, ASSIST_MBOX1_MASK, 1);
 
-	writel_relaxed(0x404038aa, core->dos_base + MDEC_PIC_DC_THRESH);
+	amvdec_write_dos(core, MDEC_PIC_DC_THRESH, 0x404038aa);
 	
-	writel_relaxed((1<<12)|(1<<11), core->dos_base + DOS_SW_RESET0);
-	writel_relaxed(0, core->dos_base + DOS_SW_RESET0);
+	amvdec_write_dos(core, DOS_SW_RESET0, (1<<12)|(1<<11));
+	amvdec_write_dos(core, DOS_SW_RESET0, 0);
 
 	readl_relaxed(core->dos_base + DOS_SW_RESET0);
 	return 0;
@@ -188,9 +188,9 @@ static void codec_h264_set_param(struct amvdec_session *sess) {
 
 	sess->keyframe_found = 1;
 
-	writel_relaxed(0, core->dos_base + AV_SCRATCH_7);
-	writel_relaxed(0, core->dos_base + AV_SCRATCH_8);
-	writel_relaxed(0, core->dos_base + AV_SCRATCH_9);
+	amvdec_write_dos(core, AV_SCRATCH_7, 0);
+	amvdec_write_dos(core, AV_SCRATCH_8, 0);
+	amvdec_write_dos(core, AV_SCRATCH_9, 0);
 
 	parsed_info = readl_relaxed(core->dos_base + AV_SCRATCH_1);
 
@@ -232,10 +232,10 @@ static void codec_h264_set_param(struct amvdec_session *sess) {
 	}
 
 	/* Address to store the references' MVs ? */
-	writel_relaxed(h264->ref_paddr, core->dos_base + AV_SCRATCH_1);
+	amvdec_write_dos(core, AV_SCRATCH_1, h264->ref_paddr);
 	/* End of ref MV */
-	writel_relaxed(h264->ref_paddr + h264->ref_size, core->dos_base + AV_SCRATCH_4);
-	writel_relaxed((max_reference_size << 24) | (actual_dpb_size << 16) | (max_dpb_size << 8), core->dos_base + AV_SCRATCH_0);
+	amvdec_write_dos(core, AV_SCRATCH_4, h264->ref_paddr + h264->ref_size);
+	amvdec_write_dos(core, AV_SCRATCH_0, (max_reference_size << 24) | (actual_dpb_size << 16) | (max_dpb_size << 8));
 }
 
 static void codec_h264_frames_ready(struct amvdec_session *sess, u32 status)
@@ -253,7 +253,7 @@ static void codec_h264_frames_ready(struct amvdec_session *sess, u32 status)
 	if (error_count) {
 		dev_warn(core->dev,
 			"decoder error(s) happened, count %d\n", error_count);
-		writel_relaxed(0, core->dos_base + AV_SCRATCH_D);
+		amvdec_write_dos(core, AV_SCRATCH_D, 0);
 	}
 
 	for (i = 0; i < num_frames; i++) {
@@ -309,11 +309,11 @@ static irqreturn_t codec_h264_threaded_isr(struct amvdec_session *sess)
 	}
 
 	if (cmd != CMD_SET_PARAM)
-		writel_relaxed(0, core->dos_base + AV_SCRATCH_0);
+		amvdec_write_dos(core, AV_SCRATCH_0, 0);
 
 	/* Decoder has some SEI data for us ; ignore */
 	if (readl_relaxed(core->dos_base + AV_SCRATCH_J) & SEI_DATA_READY)
-		writel_relaxed(0, core->dos_base + AV_SCRATCH_J);
+		amvdec_write_dos(core, AV_SCRATCH_J, 0);
 
 	return IRQ_HANDLED;
 abort:
@@ -325,7 +325,7 @@ static irqreturn_t codec_h264_isr(struct amvdec_session *sess)
 {
 	struct amvdec_core *core = sess->core;
 
-	writel_relaxed(1, core->dos_base + ASSIST_MBOX1_CLR_REG);
+	amvdec_write_dos(core, ASSIST_MBOX1_CLR_REG, 1);
 
 	return IRQ_WAKE_THREAD;
 }

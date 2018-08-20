@@ -161,4 +161,7 @@ void amvdec_add_ts_reorder(struct amvdec_session *sess, u64 ts);
 void amvdec_remove_ts(struct amvdec_session *sess, u64 ts);
 void amvdec_abort(struct amvdec_session *sess);
 
+void amvdec_write_dos(struct amvdec_core *core, u32 reg, u32 val);
+void amvdec_write_parser(struct amvdec_core *core, u32 reg, u32 val);
+
 #endif

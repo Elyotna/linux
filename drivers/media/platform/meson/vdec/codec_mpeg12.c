@@ -40,7 +40,7 @@ static int codec_mpeg12_can_recycle(struct amvdec_core *core)
 
 static void codec_mpeg12_recycle(struct amvdec_core *core, u32 buf_idx)
 {
-	writel_relaxed(buf_idx + 1, core->dos_base + MREG_BUFFERIN);
+	amvdec_write_dos(core, MREG_BUFFERIN, buf_idx + 1);
 }
 
 static int codec_mpeg12_start(struct amvdec_session *sess) {
@@ -62,26 +62,26 @@ static int codec_mpeg12_start(struct amvdec_session *sess) {
 		goto free_mpeg12;
 	}
 
-	writel_relaxed((1<<9) | (1<<8) | (1<<7) | (1<<6) | (1<<4), core->dos_base + DOS_SW_RESET0);
-	writel_relaxed(0, core->dos_base + DOS_SW_RESET0);
+	amvdec_write_dos(core, DOS_SW_RESET0, (1<<9) | (1<<8) | (1<<7) | (1<<6) | (1<<4));
+	amvdec_write_dos(core, DOS_SW_RESET0, 0);
 	readl_relaxed(core->dos_base + DOS_SW_RESET0);
 
-	writel_relaxed((1 << 4), core->dos_base + POWER_CTL_VLD);
+	amvdec_write_dos(core, POWER_CTL_VLD, (1 << 4));
 
 	amcodec_helper_set_canvases(sess, core->dos_base + AV_SCRATCH_0);
-	writel_relaxed(mpeg12->workspace_paddr + SIZE_CCBUF, core->dos_base + MREG_CO_MV_START);
+	amvdec_write_dos(core, MREG_CO_MV_START, mpeg12->workspace_paddr + SIZE_CCBUF);
 
-	writel_relaxed(0, core->dos_base + MPEG1_2_REG);
-	writel_relaxed(0, core->dos_base + PSCALE_CTRL);
-	writel_relaxed(0x380, core->dos_base + PIC_HEAD_INFO);
-	writel_relaxed(0, core->dos_base + M4_CONTROL_REG);
-	writel_relaxed(1, core->dos_base + ASSIST_MBOX1_CLR_REG);
-	writel_relaxed(0, core->dos_base + MREG_BUFFERIN);
-	writel_relaxed(0, core->dos_base + MREG_BUFFEROUT);
-	writel_relaxed((sess->width << 16) | sess->height, core->dos_base + MREG_CMD);
-	writel_relaxed(0, core->dos_base + MREG_ERROR_COUNT);
-	writel_relaxed(0, core->dos_base + MREG_FATAL_ERROR);
-	writel_relaxed(0, core->dos_base + MREG_WAIT_BUFFER);
+	amvdec_write_dos(core, MPEG1_2_REG, 0);
+	amvdec_write_dos(core, PSCALE_CTRL, 0);
+	amvdec_write_dos(core, PIC_HEAD_INFO, 0x380);
+	amvdec_write_dos(core, M4_CONTROL_REG, 0);
+	amvdec_write_dos(core, ASSIST_MBOX1_CLR_REG, 1);
+	amvdec_write_dos(core, MREG_BUFFERIN, 0);
+	amvdec_write_dos(core, MREG_BUFFEROUT, 0);
+	amvdec_write_dos(core, MREG_CMD, (sess->width << 16) | sess->height);
+	amvdec_write_dos(core, MREG_ERROR_COUNT, 0);
+	amvdec_write_dos(core, MREG_FATAL_ERROR, 0);
+	amvdec_write_dos(core, MREG_WAIT_BUFFER, 0);
 
 	return 0;
 
@@ -109,7 +109,7 @@ static irqreturn_t codec_mpeg12_isr(struct amvdec_session *sess)
 	u32 buffer_index;
 	struct amvdec_core *core = sess->core;
 
-	writel_relaxed(1, core->dos_base + ASSIST_MBOX1_CLR_REG);
+	amvdec_write_dos(core, ASSIST_MBOX1_CLR_REG, 1);
 
 	reg = readl_relaxed(core->dos_base + MREG_FATAL_ERROR);
 	if (reg == 1)
@@ -127,7 +127,7 @@ static irqreturn_t codec_mpeg12_isr(struct amvdec_session *sess)
 	amvdec_dst_buf_done_idx(sess, buffer_index);
 
 end:
-	writel_relaxed(0, core->dos_base + MREG_BUFFEROUT);
+	amvdec_write_dos(core, MREG_BUFFEROUT, 0);
 	return IRQ_HANDLED;
 }
 
