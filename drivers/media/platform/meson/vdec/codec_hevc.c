@@ -661,12 +661,12 @@ static int codec_hevc_start(struct amvdec_session *sess)
 	amvdec_write_dos(core, DOS_SW_RESET3, (1 << 14));
 	amvdec_write_dos(core, HEVC_CABAC_CONTROL, 0);
 	amvdec_write_dos(core, HEVC_PARSER_CORE_CONTROL, 0);
-	amvdec_write_dos(core, HEVC_STREAM_CONTROL, readl_relaxed(core->dos_base + HEVC_STREAM_CONTROL) | 1);
+	amvdec_write_dos(core, HEVC_STREAM_CONTROL, amvdec_read_dos(core, HEVC_STREAM_CONTROL) | 1);
 	amvdec_write_dos(core, HEVC_SHIFT_STARTCODE, 0x00000100);
 	amvdec_write_dos(core, HEVC_SHIFT_EMULATECODE, 0x00000300);
-	writel_relaxed((readl_relaxed(core->dos_base + HEVC_PARSER_INT_CONTROL) & 0x03ffffff) |
+	writel_relaxed((amvdec_read_dos(core, HEVC_PARSER_INT_CONTROL) & 0x03ffffff) |
 			(3 << 29) | (2 << 26) | (1 << 24) | (1 << 22) | (1 << 7) | (1 << 4) | 1, core->dos_base + HEVC_PARSER_INT_CONTROL);
-	amvdec_write_dos(core, HEVC_SHIFT_STATUS, readl_relaxed(core->dos_base + HEVC_SHIFT_STATUS) | (1 << 1) | 1);
+	amvdec_write_dos(core, HEVC_SHIFT_STATUS, amvdec_read_dos(core, HEVC_SHIFT_STATUS) | (1 << 1) | 1);
 	amvdec_write_dos(core, HEVC_SHIFT_CONTROL, (3 << 6) | (2 << 4) | (2 << 1) | 1);
 	amvdec_write_dos(core, HEVC_CABAC_CONTROL, 1);
 	amvdec_write_dos(core, HEVC_PARSER_CORE_CONTROL, 1);
@@ -868,7 +868,7 @@ static void codec_hevc_set_sao(struct amvdec_session *sess, struct hevc_frame *f
 	u32 slice_deblocking_filter_disabled_flag;
 	u32 val, val_2;
 
-	val = (readl_relaxed(core->dos_base + HEVC_SAO_CTRL0) & ~0xf) | ilog2(hevc->lcu_size);
+	val = (amvdec_read_dos(core, HEVC_SAO_CTRL0) & ~0xf) | ilog2(hevc->lcu_size);
 	amvdec_write_dos(core, HEVC_SAO_CTRL0, val);
 
 	amvdec_write_dos(core, HEVC_SAO_PIC_SIZE, hevc->width | (hevc->height << 16));
@@ -899,7 +899,7 @@ static void codec_hevc_set_sao(struct amvdec_session *sess, struct hevc_frame *f
 		amvdec_write_dos(core, HEVC_DBLK_CFG1, val);
 	}
 
-	val = readl_relaxed(core->dos_base + HEVC_SAO_CTRL1) & ~0x3ff3;
+	val = amvdec_read_dos(core, HEVC_SAO_CTRL1) & ~0x3ff3;
 	if (sess->pixfmt_cap == V4L2_PIX_FMT_NV12M)
 		val |= 0xff0 | /* Set endianness for 2-bytes swaps (nv12) */
 			 0x1;   /* disable cm compression */
@@ -912,11 +912,11 @@ static void codec_hevc_set_sao(struct amvdec_session *sess, struct hevc_frame *f
 
 	if (sess->pixfmt_cap == V4L2_PIX_FMT_NV12M) {
 		/* no downscale for NV12 */
-		val = readl_relaxed(core->dos_base + HEVC_SAO_CTRL5) & ~0xff0000;
+		val = amvdec_read_dos(core, HEVC_SAO_CTRL5) & ~0xff0000;
 		amvdec_write_dos(core, HEVC_SAO_CTRL5, val);
 	}
 
-	val = readl_relaxed(core->dos_base + HEVCD_IPP_AXIIF_CONFIG) & ~0x30;
+	val = amvdec_read_dos(core, HEVCD_IPP_AXIIF_CONFIG) & ~0x30;
 	val |= 0xf;
 	if (sess->pixfmt_cap == V4L2_PIX_FMT_AM21C)
 		val |= 0x30; /* 64x32 block mode */
@@ -924,7 +924,7 @@ static void codec_hevc_set_sao(struct amvdec_session *sess, struct hevc_frame *f
 	amvdec_write_dos(core, HEVCD_IPP_AXIIF_CONFIG, val);
 
 	val = 0;
-	val_2 = readl_relaxed(core->dos_base + HEVC_SAO_CTRL0);
+	val_2 = amvdec_read_dos(core, HEVC_SAO_CTRL0);
 	val_2 &= (~0x300);
 
 	/* TODO: handle tiles here if enabled */
@@ -1006,7 +1006,7 @@ static void codec_hevc_set_mpred(struct amvdec_session *sess, struct hevc_frame 
 	u32 val;
 	int i;
 
-	val = readl_relaxed(core->dos_base + HEVC_MPRED_CURR_LCU);
+	val = amvdec_read_dos(core, HEVC_MPRED_CURR_LCU);
 
 	col_mv_rd_start_addr = codec_hevc_get_frame_mv_paddr(hevc, col_frame);
 	mpred_mv_wr_ptr = codec_hevc_get_frame_mv_paddr(hevc, frame) + (hevc->slice_addr * mv_mem_unit);
@@ -1093,7 +1093,7 @@ static void codec_hevc_set_mcrcc(struct amvdec_session *sess)
 
 	if (hevc->cur_frame->cur_slice_type == P_SLICE) {
 		amvdec_write_dos(core, HEVCD_MPP_ANC_CANVAS_ACCCONFIG_ADDR, 1 << 1);
-		val = readl_relaxed(core->dos_base + HEVCD_MPP_ANC_CANVAS_DATA_ADDR);
+		val = amvdec_read_dos(core, HEVCD_MPP_ANC_CANVAS_DATA_ADDR);
 		val &= 0xffff;
 		val |= (val << 16);
 		amvdec_write_dos(core, HEVCD_MCRCC_CTL2, val);
@@ -1101,24 +1101,24 @@ static void codec_hevc_set_mcrcc(struct amvdec_session *sess)
 		if (l0_cnt == 1) {
 			amvdec_write_dos(core, HEVCD_MCRCC_CTL3, val);
 		} else {
-			val = readl_relaxed(core->dos_base + HEVCD_MPP_ANC_CANVAS_DATA_ADDR);
+			val = amvdec_read_dos(core, HEVCD_MPP_ANC_CANVAS_DATA_ADDR);
 			val &= 0xffff;
 			val |= (val << 16);
 			amvdec_write_dos(core, HEVCD_MCRCC_CTL3, val);
 		}
 	} else { /* B_SLICE */
 		amvdec_write_dos(core, HEVCD_MPP_ANC_CANVAS_ACCCONFIG_ADDR, 0);
-		val = readl_relaxed(core->dos_base + HEVCD_MPP_ANC_CANVAS_DATA_ADDR);
+		val = amvdec_read_dos(core, HEVCD_MPP_ANC_CANVAS_DATA_ADDR);
 		val &= 0xffff;
 		val |= (val << 16);
 		amvdec_write_dos(core, HEVCD_MCRCC_CTL2, val);
 
 		amvdec_write_dos(core, HEVCD_MPP_ANC_CANVAS_ACCCONFIG_ADDR, (16 << 8) | (1 << 1));
-		val_2 = readl_relaxed(core->dos_base + HEVCD_MPP_ANC_CANVAS_DATA_ADDR);
+		val_2 = amvdec_read_dos(core, HEVCD_MPP_ANC_CANVAS_DATA_ADDR);
 		val_2 &= 0xffff;
 		val_2 |= (val_2 << 16);
 		if (val == val_2 && l1_cnt > 1) {
-			val_2 = readl_relaxed(core->dos_base + HEVCD_MPP_ANC_CANVAS_DATA_ADDR);
+			val_2 = amvdec_read_dos(core, HEVCD_MPP_ANC_CANVAS_DATA_ADDR);
 			val_2 &= 0xffff;
 			val_2 |= (val_2 << 16);
 		}
@@ -1291,7 +1291,7 @@ static int codec_hevc_process_segment(struct amvdec_session *sess)
 	codec_hevc_set_mpred(sess, hevc->cur_frame, hevc->col_frame);
 	codec_hevc_set_sao(sess, hevc->cur_frame);
 
-	amvdec_write_dos(core, HEVC_WAIT_FLAG, readl_relaxed(core->dos_base + HEVC_WAIT_FLAG) | 2);
+	amvdec_write_dos(core, HEVC_WAIT_FLAG, amvdec_read_dos(core, HEVC_WAIT_FLAG) | 2);
 	amvdec_write_dos(core, HEVC_DEC_STATUS_REG, HEVC_CODED_SLICE_SEGMENT_DAT);
 
 	/* Interrupt the firmware's processor */
@@ -1393,7 +1393,7 @@ static irqreturn_t codec_hevc_isr(struct amvdec_session *sess)
 	struct amvdec_core *core = sess->core;
 	struct codec_hevc *hevc = sess->priv;
 
-	hevc->dec_status = readl_relaxed(core->dos_base + HEVC_DEC_STATUS_REG);
+	hevc->dec_status = amvdec_read_dos(core, HEVC_DEC_STATUS_REG);
 
 	return IRQ_WAKE_THREAD;
 }

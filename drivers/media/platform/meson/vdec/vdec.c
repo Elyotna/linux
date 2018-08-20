@@ -924,11 +924,23 @@ static const struct v4l2_file_operations vdec_fops = {
 #endif
 };
 
+u32 amvdec_read_dos(struct amvdec_core *core, u32 reg)
+{
+	return readl_relaxed(core->dos_base + reg);
+}
+EXPORT_SYMBOL_GPL(amvdec_read_dos);
+
 void amvdec_write_dos(struct amvdec_core *core, u32 reg, u32 val)
 {
 	writel_relaxed(val, core->dos_base + reg);
 }
 EXPORT_SYMBOL_GPL(amvdec_write_dos);
+
+u32 amvdec_read_parser(struct amvdec_core *core, u32 reg)
+{
+	return readl_relaxed(core->esparser_base + reg);
+}
+EXPORT_SYMBOL_GPL(amvdec_read_parser);
 
 void amvdec_write_parser(struct amvdec_core *core, u32 reg, u32 val)
 {

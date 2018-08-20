@@ -17,7 +17,7 @@
 
 static int codec_mjpeg_can_recycle(struct amvdec_core *core)
 {
-	return !readl_relaxed(core->dos_base + MREG_TO_AMRISC);
+	return !amvdec_read_dos(core, MREG_TO_AMRISC);
 }
 
 static void codec_mjpeg_recycle(struct amvdec_core *core, u32 buf_idx)
@@ -124,7 +124,7 @@ static irqreturn_t codec_mjpeg_isr(struct amvdec_session *sess)
 
 	amvdec_write_dos(core, ASSIST_MBOX1_CLR_REG, 1);
 
-	reg = readl_relaxed(core->dos_base + MREG_FROM_AMRISC);
+	reg = amvdec_read_dos(core, MREG_FROM_AMRISC);
 	if (!(reg & 0x7))
 		return IRQ_HANDLED;
 

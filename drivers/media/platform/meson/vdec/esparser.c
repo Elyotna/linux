@@ -104,7 +104,7 @@ static irqreturn_t esparser_isr(int irq, void *dev)
 	int int_status;
 	struct amvdec_core *core = dev;
 
-	int_status = readl_relaxed(core->esparser_base + PARSER_INT_STATUS);
+	int_status = amvdec_read_parser(core, PARSER_INT_STATUS);
 	amvdec_write_parser(core, PARSER_INT_STATUS, int_status);
 
 	if (int_status & PARSER_INTSTAT_SC_FOUND) {
@@ -163,7 +163,7 @@ static u32 esparser_vififo_get_free_space(struct amvdec_session *sess)
 	struct amvdec_core *core = sess->core;
 
 	vififo_usage  = vdec_ops->vififo_level(sess);
-	vififo_usage += readl_relaxed(core->esparser_base + PARSER_VIDEO_HOLE);
+	vififo_usage += amvdec_read_parser(core, PARSER_VIDEO_HOLE);
 	vififo_usage += (6 * SZ_1K);
 
 	if (vififo_usage > sess->vififo_size) {
@@ -297,7 +297,7 @@ int esparser_power_up(struct amvdec_session *sess)
 
 	amvdec_write_parser(core, PARSER_VIDEO_START_PTR, sess->vififo_paddr);
 	amvdec_write_parser(core, PARSER_VIDEO_END_PTR, sess->vififo_paddr + sess->vififo_size - 8);
-	amvdec_write_parser(core, PARSER_ES_CONTROL, readl_relaxed(core->esparser_base + PARSER_ES_CONTROL) & ~1);
+	amvdec_write_parser(core, PARSER_ES_CONTROL, amvdec_read_parser(core, PARSER_ES_CONTROL) & ~1);
 	
 	if (vdec_ops->conf_esparser)
 		vdec_ops->conf_esparser(sess);

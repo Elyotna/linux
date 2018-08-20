@@ -50,8 +50,8 @@ struct codec_h264 {
 
 static int codec_h264_can_recycle(struct amvdec_core *core)
 {
-	return !readl_relaxed(core->dos_base + AV_SCRATCH_7) ||
-	       !readl_relaxed(core->dos_base + AV_SCRATCH_8);
+	return !amvdec_read_dos(core, AV_SCRATCH_7) ||
+	       !amvdec_read_dos(core, AV_SCRATCH_8);
 }
 
 static void codec_h264_recycle(struct amvdec_core *core, u32 buf_idx)
@@ -59,7 +59,7 @@ static void codec_h264_recycle(struct amvdec_core *core, u32 buf_idx)
 	/* Tell the decoder he can recycle this buffer.
 	 * AV_SCRATCH_8 serves the same purpose.
 	 */
-	if (!readl_relaxed(core->dos_base + AV_SCRATCH_7))
+	if (!amvdec_read_dos(core, AV_SCRATCH_7))
 		amvdec_write_dos(core, AV_SCRATCH_7, buf_idx + 1);
 	else
 		amvdec_write_dos(core, AV_SCRATCH_8, buf_idx + 1);
@@ -86,20 +86,20 @@ static int codec_h264_start(struct amvdec_session *sess) {
 		return -ENOMEM;
 	}
 
-	while (readl_relaxed(core->dos_base + DCAC_DMA_CTRL) & 0x8000) { }
-	while (readl_relaxed(core->dos_base + LMEM_DMA_CTRL) & 0x8000) { }
+	while (amvdec_read_dos(core, DCAC_DMA_CTRL) & 0x8000) { }
+	while (amvdec_read_dos(core, LMEM_DMA_CTRL) & 0x8000) { }
 
 	amvdec_write_dos(core, DOS_SW_RESET0, (1<<7) | (1<<6) | (1<<4));
 	amvdec_write_dos(core, DOS_SW_RESET0, 0);
-	readl_relaxed(core->dos_base + DOS_SW_RESET0);
+	amvdec_read_dos(core, DOS_SW_RESET0);
 
 	amvdec_write_dos(core, DOS_SW_RESET0, (1<<7) | (1<<6) | (1<<4));
 	amvdec_write_dos(core, DOS_SW_RESET0, 0);
 	amvdec_write_dos(core, DOS_SW_RESET0, (1<<9) | (1<<8));
 	amvdec_write_dos(core, DOS_SW_RESET0, 0);
-	readl_relaxed(core->dos_base + DOS_SW_RESET0);
+	amvdec_read_dos(core, DOS_SW_RESET0);
 
-	amvdec_write_dos(core, POWER_CTL_VLD, readl_relaxed(core->dos_base + POWER_CTL_VLD) | (1 << 9) | (1 << 6));
+	amvdec_write_dos(core, POWER_CTL_VLD, amvdec_read_dos(core, POWER_CTL_VLD) | (1 << 9) | (1 << 6));
 
 	amvdec_write_dos(core, PSCALE_CTRL, 0);
 	amvdec_write_dos(core, AV_SCRATCH_0, 0);
@@ -114,7 +114,7 @@ static int codec_h264_start(struct amvdec_session *sess) {
 	amvdec_write_dos(core, AV_SCRATCH_9, 0);
 
 	/* Enable "error correction", don't know what it means */
-	amvdec_write_dos(core, AV_SCRATCH_F, (readl_relaxed(core->dos_base + AV_SCRATCH_F) & 0xffffffc3) | (1 << 4) | (1 << 7));
+	amvdec_write_dos(core, AV_SCRATCH_F, (amvdec_read_dos(core, AV_SCRATCH_F) & 0xffffffc3) | (1 << 4) | (1 << 7));
 
 	/* Enable IRQ */
 	amvdec_write_dos(core, ASSIST_MBOX1_CLR_REG, 1);
@@ -125,7 +125,7 @@ static int codec_h264_start(struct amvdec_session *sess) {
 	amvdec_write_dos(core, DOS_SW_RESET0, (1<<12)|(1<<11));
 	amvdec_write_dos(core, DOS_SW_RESET0, 0);
 
-	readl_relaxed(core->dos_base + DOS_SW_RESET0);
+	amvdec_read_dos(core, DOS_SW_RESET0);
 	return 0;
 }
 
@@ -192,7 +192,7 @@ static void codec_h264_set_param(struct amvdec_session *sess) {
 	amvdec_write_dos(core, AV_SCRATCH_8, 0);
 	amvdec_write_dos(core, AV_SCRATCH_9, 0);
 
-	parsed_info = readl_relaxed(core->dos_base + AV_SCRATCH_1);
+	parsed_info = amvdec_read_dos(core, AV_SCRATCH_1);
 
 	/* Total number of 16x16 macroblocks */
 	mb_total = (parsed_info >> 8) & 0xffff;
@@ -248,7 +248,7 @@ static void codec_h264_frames_ready(struct amvdec_session *sess, u32 status)
 	unsigned int buffer_index;
 	int i;
 
-	error_count = readl_relaxed(core->dos_base + AV_SCRATCH_D);
+	error_count = amvdec_read_dos(core, AV_SCRATCH_D);
 	num_frames = (status >> 8) & 0xff;
 	if (error_count) {
 		dev_warn(core->dev,
@@ -257,7 +257,7 @@ static void codec_h264_frames_ready(struct amvdec_session *sess, u32 status)
 	}
 
 	for (i = 0; i < num_frames; i++) {
-		frame_status = readl_relaxed(core->dos_base + AV_SCRATCH_1 + i*4);
+		frame_status = amvdec_read_dos(core, AV_SCRATCH_1 + i*4);
 		buffer_index = frame_status & 0x1f;
 		error = frame_status & 0x200;
 
@@ -280,7 +280,7 @@ static irqreturn_t codec_h264_threaded_isr(struct amvdec_session *sess)
 	u32 size;
 	u8 cmd;
 
-	status = readl_relaxed(core->dos_base + AV_SCRATCH_0);
+	status = amvdec_read_dos(core, AV_SCRATCH_0);
 	cmd = status & 0xff;
 
 	switch (cmd) {
@@ -294,11 +294,11 @@ static irqreturn_t codec_h264_threaded_isr(struct amvdec_session *sess)
 		dev_err(core->dev, "H.264 decoder fatal error\n");
 		goto abort;
 	case CMD_BAD_WIDTH:
-		size = (readl_relaxed(core->dos_base + AV_SCRATCH_1) + 1) * 16;
+		size = (amvdec_read_dos(core, AV_SCRATCH_1) + 1) * 16;
 		dev_err(core->dev, "Unsupported video width: %u\n", size);
 		goto abort;
 	case CMD_BAD_HEIGHT:
-		size = (readl_relaxed(core->dos_base + AV_SCRATCH_1) + 1) * 16;
+		size = (amvdec_read_dos(core, AV_SCRATCH_1) + 1) * 16;
 		dev_err(core->dev, "Unsupported video height: %u\n", size);
 		goto abort;
 	case 9: /* Unused but not worth printing for */
@@ -312,7 +312,7 @@ static irqreturn_t codec_h264_threaded_isr(struct amvdec_session *sess)
 		amvdec_write_dos(core, AV_SCRATCH_0, 0);
 
 	/* Decoder has some SEI data for us ; ignore */
-	if (readl_relaxed(core->dos_base + AV_SCRATCH_J) & SEI_DATA_READY)
+	if (amvdec_read_dos(core, AV_SCRATCH_J) & SEI_DATA_READY)
 		amvdec_write_dos(core, AV_SCRATCH_J, 0);
 
 	return IRQ_HANDLED;

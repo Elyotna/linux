@@ -67,7 +67,7 @@ static int vdec_1_load_firmware(struct amvdec_session *sess, const char* fwname)
 	amvdec_write_dos(core, MPSR, 0);
 	amvdec_write_dos(core, CPSR, 0);
 
-	amvdec_write_dos(core, MDEC_PIC_DC_CTRL, readl_relaxed(core->dos_base + MDEC_PIC_DC_CTRL) & ~(1<<31));
+	amvdec_write_dos(core, MDEC_PIC_DC_CTRL, amvdec_read_dos(core, MDEC_PIC_DC_CTRL) & ~(1<<31));
 
 	amvdec_write_dos(core, IMEM_DMA_ADR, mc_addr_map);
 	amvdec_write_dos(core, IMEM_DMA_COUNT, MC_SIZE / 4);
@@ -102,16 +102,16 @@ int vdec_1_stbuf_power_up(struct amvdec_session *sess) {
 	amvdec_write_dos(core, VLD_MEM_VIFIFO_CURR_PTR, sess->vififo_paddr);
 	amvdec_write_dos(core, VLD_MEM_VIFIFO_END_PTR, sess->vififo_paddr + sess->vififo_size - 8);
 
-	amvdec_write_dos(core, VLD_MEM_VIFIFO_CONTROL, readl_relaxed(core->dos_base + VLD_MEM_VIFIFO_CONTROL) |  1);
-	amvdec_write_dos(core, VLD_MEM_VIFIFO_CONTROL, readl_relaxed(core->dos_base + VLD_MEM_VIFIFO_CONTROL) & ~1);
+	amvdec_write_dos(core, VLD_MEM_VIFIFO_CONTROL, amvdec_read_dos(core, VLD_MEM_VIFIFO_CONTROL) |  1);
+	amvdec_write_dos(core, VLD_MEM_VIFIFO_CONTROL, amvdec_read_dos(core, VLD_MEM_VIFIFO_CONTROL) & ~1);
 
 	amvdec_write_dos(core, VLD_MEM_VIFIFO_BUF_CNTL, MEM_BUFCTRL_MANUAL);
 	amvdec_write_dos(core, VLD_MEM_VIFIFO_WP, sess->vififo_paddr);
 
-	amvdec_write_dos(core, VLD_MEM_VIFIFO_BUF_CNTL, readl_relaxed(core->dos_base + VLD_MEM_VIFIFO_BUF_CNTL) |  1);
-	amvdec_write_dos(core, VLD_MEM_VIFIFO_BUF_CNTL, readl_relaxed(core->dos_base + VLD_MEM_VIFIFO_BUF_CNTL) & ~1);
+	amvdec_write_dos(core, VLD_MEM_VIFIFO_BUF_CNTL, amvdec_read_dos(core, VLD_MEM_VIFIFO_BUF_CNTL) |  1);
+	amvdec_write_dos(core, VLD_MEM_VIFIFO_BUF_CNTL, amvdec_read_dos(core, VLD_MEM_VIFIFO_BUF_CNTL) & ~1);
 
-	amvdec_write_dos(core, VLD_MEM_VIFIFO_CONTROL, readl_relaxed(core->dos_base + VLD_MEM_VIFIFO_CONTROL) | (0x11 << MEM_FIFO_CNT_BIT) | MEM_FILL_ON_LEVEL | MEM_CTRL_FILL_EN | MEM_CTRL_EMPTY_EN);
+	amvdec_write_dos(core, VLD_MEM_VIFIFO_CONTROL, amvdec_read_dos(core, VLD_MEM_VIFIFO_CONTROL) | (0x11 << MEM_FIFO_CNT_BIT) | MEM_FILL_ON_LEVEL | MEM_CTRL_FILL_EN | MEM_CTRL_EMPTY_EN);
 
 	return 0;
 }
@@ -123,14 +123,14 @@ static void vdec_1_conf_esparser(struct amvdec_session *sess)
 	/* VDEC_1 specific ESPARSER stuff */
 	amvdec_write_dos(core, DOS_GEN_CTRL0, 0); // set vififo_vbuf_rp_sel=>vdec
 	amvdec_write_dos(core, VLD_MEM_VIFIFO_BUF_CNTL, 1);
-	amvdec_write_dos(core, VLD_MEM_VIFIFO_BUF_CNTL, readl_relaxed(core->dos_base + VLD_MEM_VIFIFO_BUF_CNTL) & ~1);
+	amvdec_write_dos(core, VLD_MEM_VIFIFO_BUF_CNTL, amvdec_read_dos(core, VLD_MEM_VIFIFO_BUF_CNTL) & ~1);
 }
 
 static u32 vdec_1_vififo_level(struct amvdec_session *sess)
 {
 	struct amvdec_core *core = sess->core;
 
-	return readl_relaxed(core->dos_base + VLD_MEM_VIFIFO_LEVEL);
+	return amvdec_read_dos(core, VLD_MEM_VIFIFO_LEVEL);
 }
 
 static int vdec_1_start(struct amvdec_session *sess)
@@ -162,7 +162,7 @@ static int vdec_1_start(struct amvdec_session *sess)
 	amvdec_write_dos(core, DOS_VDEC_MCRCC_STALL_CTRL, 0x00000000);
 
 	amvdec_write_dos(core, GCLK_EN, 0x3ff);
-	amvdec_write_dos(core, MDEC_PIC_DC_CTRL, readl_relaxed(core->dos_base + MDEC_PIC_DC_CTRL) & ~(1<<31));
+	amvdec_write_dos(core, MDEC_PIC_DC_CTRL, amvdec_read_dos(core, MDEC_PIC_DC_CTRL) & ~(1<<31));
 
 	vdec_1_stbuf_power_up(sess);
 
@@ -178,7 +178,7 @@ static int vdec_1_start(struct amvdec_session *sess)
 
 	/* Enable 2-plane output */
 	if (sess->pixfmt_cap == V4L2_PIX_FMT_NV12M)
-		amvdec_write_dos(core, MDEC_PIC_DC_CTRL, readl_relaxed(core->dos_base + MDEC_PIC_DC_CTRL) | (1 << 17));
+		amvdec_write_dos(core, MDEC_PIC_DC_CTRL, amvdec_read_dos(core, MDEC_PIC_DC_CTRL) | (1 << 17));
 
 	/* Enable firmware processor */
 	amvdec_write_dos(core, MPSR, 1);
@@ -198,27 +198,27 @@ static int vdec_1_stop(struct amvdec_session *sess)
 
 	codec_ops->stop(sess);
 
-	while (readl_relaxed(core->dos_base + IMEM_DMA_CTRL) & 0x8000) { }
+	while (amvdec_read_dos(core, IMEM_DMA_CTRL) & 0x8000) { }
 
 	amvdec_write_dos(core, DOS_SW_RESET0, (1<<12)|(1<<11));
 	amvdec_write_dos(core, DOS_SW_RESET0, 0);
-	readl_relaxed(core->dos_base + DOS_SW_RESET0);
+	amvdec_read_dos(core, DOS_SW_RESET0);
 
 	amvdec_write_dos(core, ASSIST_MBOX1_MASK, 0);
 
-	amvdec_write_dos(core, MDEC_PIC_DC_CTRL, readl_relaxed(core->dos_base + MDEC_PIC_DC_CTRL) | 1);
-	amvdec_write_dos(core, MDEC_PIC_DC_CTRL, readl_relaxed(core->dos_base + MDEC_PIC_DC_CTRL) & ~1);
-	readl_relaxed(core->dos_base + MDEC_PIC_DC_STATUS);
+	amvdec_write_dos(core, MDEC_PIC_DC_CTRL, amvdec_read_dos(core, MDEC_PIC_DC_CTRL) | 1);
+	amvdec_write_dos(core, MDEC_PIC_DC_CTRL, amvdec_read_dos(core, MDEC_PIC_DC_CTRL) & ~1);
+	amvdec_read_dos(core, MDEC_PIC_DC_STATUS);
 
 	amvdec_write_dos(core, DBLK_CTRL, 3);
 	amvdec_write_dos(core, DBLK_CTRL, 0);
-	readl_relaxed(core->dos_base + DBLK_STATUS);
+	amvdec_read_dos(core, DBLK_STATUS);
 
-	amvdec_write_dos(core, MC_CTRL1, readl_relaxed(core->dos_base + MC_CTRL1) | 0x9);
-	amvdec_write_dos(core, MC_CTRL1, readl_relaxed(core->dos_base + MC_CTRL1) & ~0x9);
-	readl_relaxed(core->dos_base + MC_STATUS0);
+	amvdec_write_dos(core, MC_CTRL1, amvdec_read_dos(core, MC_CTRL1) | 0x9);
+	amvdec_write_dos(core, MC_CTRL1, amvdec_read_dos(core, MC_CTRL1) & ~0x9);
+	amvdec_read_dos(core, MC_STATUS0);
 
-	while (readl_relaxed(core->dos_base + DCAC_DMA_CTRL) & 0x8000) { }
+	while (amvdec_read_dos(core, DCAC_DMA_CTRL) & 0x8000) { }
 
 	/* enable vdec1 isolation */
 	regmap_write(core->regmap_ao, AO_RTI_GEN_PWR_ISO0, 0xc0);

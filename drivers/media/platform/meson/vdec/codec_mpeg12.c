@@ -35,7 +35,7 @@ struct codec_mpeg12 {
 
 static int codec_mpeg12_can_recycle(struct amvdec_core *core)
 {
-	return !readl_relaxed(core->dos_base + MREG_BUFFERIN);
+	return !amvdec_read_dos(core, MREG_BUFFERIN);
 }
 
 static void codec_mpeg12_recycle(struct amvdec_core *core, u32 buf_idx)
@@ -64,7 +64,7 @@ static int codec_mpeg12_start(struct amvdec_session *sess) {
 
 	amvdec_write_dos(core, DOS_SW_RESET0, (1<<9) | (1<<8) | (1<<7) | (1<<6) | (1<<4));
 	amvdec_write_dos(core, DOS_SW_RESET0, 0);
-	readl_relaxed(core->dos_base + DOS_SW_RESET0);
+	amvdec_read_dos(core, DOS_SW_RESET0);
 
 	amvdec_write_dos(core, POWER_CTL_VLD, (1 << 4));
 
@@ -111,11 +111,11 @@ static irqreturn_t codec_mpeg12_isr(struct amvdec_session *sess)
 
 	amvdec_write_dos(core, ASSIST_MBOX1_CLR_REG, 1);
 
-	reg = readl_relaxed(core->dos_base + MREG_FATAL_ERROR);
+	reg = amvdec_read_dos(core, MREG_FATAL_ERROR);
 	if (reg == 1)
 		dev_err(core->dev, "MPEG12 fatal error\n");
 
-	reg = readl_relaxed(core->dos_base + MREG_BUFFEROUT);
+	reg = amvdec_read_dos(core, MREG_BUFFEROUT);
 	if (!reg)
 		return IRQ_HANDLED;
 

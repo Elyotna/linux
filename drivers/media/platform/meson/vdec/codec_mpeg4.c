@@ -35,7 +35,7 @@ struct codec_mpeg4 {
 
 static int codec_mpeg4_can_recycle(struct amvdec_core *core)
 {
-	return !readl_relaxed(core->dos_base + MREG_BUFFERIN);
+	return !amvdec_read_dos(core, MREG_BUFFERIN);
 }
 
 static void codec_mpeg4_recycle(struct amvdec_core *core, u32 buf_idx)
@@ -103,7 +103,7 @@ static int codec_mpeg4_start(struct amvdec_session *sess) {
 
 	amvdec_write_dos(core, DOS_SW_RESET0, (1<<7) | (1<<6));
 	amvdec_write_dos(core, DOS_SW_RESET0, 0);
-	readl_relaxed(core->dos_base + DOS_SW_RESET0);
+	amvdec_read_dos(core, DOS_SW_RESET0);
 
 	codec_mpeg4_set_canvases(sess);
 
@@ -143,15 +143,15 @@ static irqreturn_t codec_mpeg4_isr(struct amvdec_session *sess)
 	u32 buffer_index;
 	struct amvdec_core *core = sess->core;
 
-	reg = readl_relaxed(core->dos_base + MREG_FATAL_ERROR);
+	reg = amvdec_read_dos(core, MREG_FATAL_ERROR);
 	if (reg == 1)
 		dev_err(core->dev, "mpeg4 fatal error\n");
 
-	reg = readl_relaxed(core->dos_base + MREG_BUFFEROUT);
+	reg = amvdec_read_dos(core, MREG_BUFFEROUT);
 	if (reg) {
 		sess->keyframe_found = 1;
-		readl_relaxed(core->dos_base + MP4_NOT_CODED_CNT);
-		readl_relaxed(core->dos_base + MP4_VOP_TIME_INC);
+		amvdec_read_dos(core, MP4_NOT_CODED_CNT);
+		amvdec_read_dos(core, MP4_VOP_TIME_INC);
 		buffer_index = reg & 0x7;
 		amvdec_dst_buf_done_idx(sess, buffer_index);
 		amvdec_write_dos(core, MREG_BUFFEROUT, 0);
