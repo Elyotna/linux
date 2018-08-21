@@ -101,10 +101,6 @@ static int codec_mpeg4_start(struct amvdec_session *sess) {
 		goto free_mpeg4;
 	}
 
-	amvdec_write_dos(core, DOS_SW_RESET0, (1<<7) | (1<<6));
-	amvdec_write_dos(core, DOS_SW_RESET0, 0);
-	amvdec_read_dos(core, DOS_SW_RESET0);
-
 	codec_mpeg4_set_canvases(sess);
 
 	amvdec_write_dos(core, MEM_OFFSET_REG, mpeg4->workspace_paddr - DCAC_BUFF_START_IP);
@@ -113,8 +109,6 @@ static int codec_mpeg4_start(struct amvdec_session *sess) {
 	amvdec_write_dos(core, MREG_BUFFERIN, 0);
 	amvdec_write_dos(core, MREG_BUFFEROUT, 0);
 	amvdec_write_dos(core, MREG_FATAL_ERROR, 0);
-	amvdec_write_dos(core, ASSIST_MBOX1_CLR_REG, 1);
-	amvdec_write_dos(core, ASSIST_MBOX1_MASK, 1);
 	amvdec_write_dos(core, MDEC_PIC_DC_THRESH, 0x404038aa);
 
 	return 0;

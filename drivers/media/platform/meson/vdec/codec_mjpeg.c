@@ -88,9 +88,6 @@ static int codec_mjpeg_start(struct amvdec_session *sess)
 {
 	struct amvdec_core *core = sess->core;
 
-	amvdec_write_dos(core, DOS_SW_RESET0, (1 << 7) | (1 << 6));
-	amvdec_write_dos(core, DOS_SW_RESET0, 0);
-
 	amvdec_write_dos(core, AV_SCRATCH_0, 12);
 	amvdec_write_dos(core, AV_SCRATCH_1, 0x031a);
 
@@ -101,8 +98,6 @@ static int codec_mjpeg_start(struct amvdec_session *sess)
 	amvdec_write_dos(core, MREG_FROM_AMRISC, 0);
 	amvdec_write_dos(core, MCPU_INTR_MSK, 0xffff);
 	amvdec_write_dos(core, MREG_DECODE_PARAM, (sess->height << 4) | 0x8000);
-	amvdec_write_dos(core, ASSIST_MBOX1_CLR_REG, 1);
-	amvdec_write_dos(core, ASSIST_MBOX1_MASK, 1);
 	amvdec_write_dos(core, VDEC_ASSIST_AMR1_INT8, 8);
 
 	/* Intra-only codec */

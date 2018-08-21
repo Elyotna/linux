@@ -176,6 +176,10 @@ static int vdec_1_start(struct amvdec_session *sess)
 
 	codec_ops->start(sess);
 
+	/* Enable IRQ */
+	amvdec_write_dos(core, ASSIST_MBOX1_CLR_REG, 1);
+	amvdec_write_dos(core, ASSIST_MBOX1_MASK, 1);
+
 	/* Enable 2-plane output */
 	if (sess->pixfmt_cap == V4L2_PIX_FMT_NV12M)
 		amvdec_write_dos(core, MDEC_PIC_DC_CTRL, amvdec_read_dos(core, MDEC_PIC_DC_CTRL) | (1 << 17));

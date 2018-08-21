@@ -62,10 +62,6 @@ static int codec_mpeg12_start(struct amvdec_session *sess) {
 		goto free_mpeg12;
 	}
 
-	amvdec_write_dos(core, DOS_SW_RESET0, (1<<9) | (1<<8) | (1<<7) | (1<<6) | (1<<4));
-	amvdec_write_dos(core, DOS_SW_RESET0, 0);
-	amvdec_read_dos(core, DOS_SW_RESET0);
-
 	amvdec_write_dos(core, POWER_CTL_VLD, (1 << 4));
 
 	amcodec_helper_set_canvases(sess, core->dos_base + AV_SCRATCH_0);
@@ -75,7 +71,6 @@ static int codec_mpeg12_start(struct amvdec_session *sess) {
 	amvdec_write_dos(core, PSCALE_CTRL, 0);
 	amvdec_write_dos(core, PIC_HEAD_INFO, 0x380);
 	amvdec_write_dos(core, M4_CONTROL_REG, 0);
-	amvdec_write_dos(core, ASSIST_MBOX1_CLR_REG, 1);
 	amvdec_write_dos(core, MREG_BUFFERIN, 0);
 	amvdec_write_dos(core, MREG_BUFFEROUT, 0);
 	amvdec_write_dos(core, MREG_CMD, (sess->width << 16) | sess->height);

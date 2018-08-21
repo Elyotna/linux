@@ -89,16 +89,6 @@ static int codec_h264_start(struct amvdec_session *sess) {
 	while (amvdec_read_dos(core, DCAC_DMA_CTRL) & 0x8000) { }
 	while (amvdec_read_dos(core, LMEM_DMA_CTRL) & 0x8000) { }
 
-	amvdec_write_dos(core, DOS_SW_RESET0, (1<<7) | (1<<6) | (1<<4));
-	amvdec_write_dos(core, DOS_SW_RESET0, 0);
-	amvdec_read_dos(core, DOS_SW_RESET0);
-
-	amvdec_write_dos(core, DOS_SW_RESET0, (1<<7) | (1<<6) | (1<<4));
-	amvdec_write_dos(core, DOS_SW_RESET0, 0);
-	amvdec_write_dos(core, DOS_SW_RESET0, (1<<9) | (1<<8));
-	amvdec_write_dos(core, DOS_SW_RESET0, 0);
-	amvdec_read_dos(core, DOS_SW_RESET0);
-
 	amvdec_write_dos(core, POWER_CTL_VLD, amvdec_read_dos(core, POWER_CTL_VLD) | (1 << 9) | (1 << 6));
 
 	amvdec_write_dos(core, PSCALE_CTRL, 0);
@@ -115,10 +105,6 @@ static int codec_h264_start(struct amvdec_session *sess) {
 
 	/* Enable "error correction", don't know what it means */
 	amvdec_write_dos(core, AV_SCRATCH_F, (amvdec_read_dos(core, AV_SCRATCH_F) & 0xffffffc3) | (1 << 4) | (1 << 7));
-
-	/* Enable IRQ */
-	amvdec_write_dos(core, ASSIST_MBOX1_CLR_REG, 1);
-	amvdec_write_dos(core, ASSIST_MBOX1_MASK, 1);
 
 	amvdec_write_dos(core, MDEC_PIC_DC_THRESH, 0x404038aa);
 	
