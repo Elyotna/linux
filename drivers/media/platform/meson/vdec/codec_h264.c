@@ -29,8 +29,11 @@
 #define CMD_BAD_WIDTH		7
 #define CMD_BAD_HEIGHT		8
 
+/* Size of Motion Vector per macroblock */
+#define MB_MV_SIZE 96
+
 struct codec_h264 {
-	/* H.264 decoder requires an extended firmware loaded in contiguous RAM */
+	/* H.264 decoder requires an extended firmware */
 	void      *ext_fw_vaddr;
 	dma_addr_t ext_fw_paddr;
 
@@ -107,11 +110,6 @@ static int codec_h264_start(struct amvdec_session *sess) {
 	amvdec_write_dos(core, AV_SCRATCH_F, (amvdec_read_dos(core, AV_SCRATCH_F) & 0xffffffc3) | (1 << 4) | (1 << 7));
 
 	amvdec_write_dos(core, MDEC_PIC_DC_THRESH, 0x404038aa);
-	
-	amvdec_write_dos(core, DOS_SW_RESET0, (1<<12)|(1<<11));
-	amvdec_write_dos(core, DOS_SW_RESET0, 0);
-
-	amvdec_read_dos(core, DOS_SW_RESET0);
 	return 0;
 }
 
@@ -121,16 +119,20 @@ static int codec_h264_stop(struct amvdec_session *sess)
 	struct amvdec_core *core = sess->core;
 
 	if (h264->ext_fw_vaddr)
-		dma_free_coherent(core->dev, SIZE_EXT_FW, h264->ext_fw_vaddr, h264->ext_fw_paddr);
+		dma_free_coherent(core->dev, SIZE_EXT_FW,
+				  h264->ext_fw_vaddr, h264->ext_fw_paddr);
 	
 	if (h264->workspace_vaddr)
-		dma_free_coherent(core->dev, SIZE_WORKSPACE, h264->workspace_vaddr, h264->workspace_paddr);
+		dma_free_coherent(core->dev, SIZE_WORKSPACE,
+				  h264->workspace_vaddr, h264->workspace_paddr);
 	
 	if (h264->ref_vaddr)
-		dma_free_coherent(core->dev, h264->ref_size, h264->ref_vaddr, h264->ref_paddr);
+		dma_free_coherent(core->dev, h264->ref_size,
+				  h264->ref_vaddr, h264->ref_paddr);
 	
 	if (h264->sei_vaddr)
-		dma_free_coherent(core->dev, SIZE_SEI, h264->sei_vaddr, h264->sei_paddr);
+		dma_free_coherent(core->dev, SIZE_SEI,
+				  h264->sei_vaddr, h264->sei_paddr);
 	
 	return 0;
 }
@@ -149,9 +151,11 @@ static int codec_h264_load_extended_firmware(struct amvdec_session *sess, const 
 	if (len != SIZE_EXT_FW)
 		return -EINVAL;
 	
-	h264->ext_fw_vaddr = dma_alloc_coherent(core->dev, SIZE_EXT_FW, &h264->ext_fw_paddr, GFP_KERNEL);
+	h264->ext_fw_vaddr = dma_alloc_coherent(core->dev, SIZE_EXT_FW,
+						&h264->ext_fw_paddr, GFP_KERNEL);
 	if (!h264->ext_fw_vaddr) {
-		dev_err(core->dev, "Couldn't allocate memory for H.264 extended firmware\n");
+		dev_err(core->dev,
+			"Couldn't allocate memory for H.264 extended fw\n");
 		return -ENOMEM;
 	}
 
@@ -161,16 +165,15 @@ static int codec_h264_load_extended_firmware(struct amvdec_session *sess, const 
 }
 
 /* Configure the H.264 decoder when the esparser finished parsing
- * the first buffer.
+ * the first keyframe
  */
 static void codec_h264_set_param(struct amvdec_session *sess) {
-	u32 max_reference_size;
-	u32 parsed_info, mb_width, mb_height, mb_total;
-	u32 mb_mv_byte;
-	u32 actual_dpb_size = v4l2_m2m_num_dst_bufs_ready(sess->m2m_ctx);
-	u32 max_dpb_size = 4;
 	struct amvdec_core *core = sess->core;
 	struct codec_h264 *h264 = sess->priv;
+	u32 max_reference_size;
+	u32 parsed_info, mb_width, mb_height, mb_total;
+	u32 actual_dpb_size = v4l2_m2m_num_dst_bufs_ready(sess->m2m_ctx);
+	u32 max_dpb_size = 4;
 
 	sess->keyframe_found = 1;
 
@@ -183,9 +186,6 @@ static void codec_h264_set_param(struct amvdec_session *sess) {
 	/* Total number of 16x16 macroblocks */
 	mb_total = (parsed_info >> 8) & 0xffff;
 
-	/* Size of Motion Vector per macroblock ? */
-	mb_mv_byte = 96;
-
 	/* Number of macroblocks per line */
 	mb_width = parsed_info & 0xff;
 
@@ -195,8 +195,8 @@ static void codec_h264_set_param(struct amvdec_session *sess) {
 	max_reference_size = (parsed_info >> 24) & 0x7f;
 
 	/* Align to a multiple of 4 macroblocks */
-	mb_width = (mb_width + 3) & 0xfffffffc;
-	mb_height = (mb_height + 3) & 0xfffffffc;
+	mb_width = ALIGN(mb_width, 4);
+	mb_height = ALIGN(mb_height, 4);
 	mb_total = mb_width * mb_height;
 
 	amcodec_helper_set_canvases(sess, core->dos_base + ANC0_CANVAS_ADDR);
@@ -209,19 +209,24 @@ static void codec_h264_set_param(struct amvdec_session *sess) {
 		"max_ref_size = %u; max_dpb_size = %u; actual_dpb_size = %u\n",
 		max_reference_size, max_dpb_size, actual_dpb_size);
 
-	h264->ref_size = mb_total * mb_mv_byte * max_reference_size;
-	h264->ref_vaddr = dma_alloc_coherent(core->dev, h264->ref_size, &h264->ref_paddr, GFP_KERNEL);
+	h264->ref_size = mb_total * MB_MV_SIZE * max_reference_size;
+	h264->ref_vaddr = dma_alloc_coherent(core->dev, h264->ref_size,
+					     &h264->ref_paddr, GFP_KERNEL);
 	if (!h264->ref_vaddr) {
-		dev_err(core->dev, "Failed to allocate memory for refs (%u)\n", h264->ref_size);
+		dev_err(core->dev, "Failed to allocate memory for refs (%u)\n",
+			h264->ref_size);
 		amvdec_abort(sess);
 		return;
 	}
 
-	/* Address to store the references' MVs ? */
+	/* Address to store the references' MVs */
 	amvdec_write_dos(core, AV_SCRATCH_1, h264->ref_paddr);
 	/* End of ref MV */
 	amvdec_write_dos(core, AV_SCRATCH_4, h264->ref_paddr + h264->ref_size);
-	amvdec_write_dos(core, AV_SCRATCH_0, (max_reference_size << 24) | (actual_dpb_size << 16) | (max_dpb_size << 8));
+
+	amvdec_write_dos(core, AV_SCRATCH_0, (max_reference_size << 24) |
+					     (actual_dpb_size << 16) |
+					     (max_dpb_size << 8));
 }
 
 static void codec_h264_frames_ready(struct amvdec_session *sess, u32 status)

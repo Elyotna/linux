@@ -38,6 +38,7 @@
 #define ANC0_CANVAS_ADDR	0x2640
 #define MDEC_PIC_DC_THRESH	0x26e0
 
+/* Firmware interface registers */
 #define AV_SCRATCH_0		0x2700
 #define AV_SCRATCH_1		0x2704
 #define AV_SCRATCH_2		0x2708
@@ -65,6 +66,22 @@
 #define PIC_HEAD_INFO		0x300c
 #define POWER_CTL_VLD		0x3020
 #define M4_CONTROL_REG		0x30a4
+
+/* Stream Buffer (stbuf) regs */
+#define VLD_MEM_VIFIFO_START_PTR	0x3100
+#define VLD_MEM_VIFIFO_CURR_PTR	0x3104
+#define VLD_MEM_VIFIFO_END_PTR	0x3108
+#define VLD_MEM_VIFIFO_CONTROL	0x3110
+	#define MEM_FIFO_CNT_BIT	16
+	#define MEM_FILL_ON_LEVEL	BIT(10)
+	#define MEM_CTRL_EMPTY_EN	BIT(2)
+	#define MEM_CTRL_FILL_EN	BIT(1)
+#define VLD_MEM_VIFIFO_WP	0x3114
+#define VLD_MEM_VIFIFO_RP	0x3118
+#define VLD_MEM_VIFIFO_LEVEL	0x311c
+#define VLD_MEM_VIFIFO_BUF_CNTL	0x3120
+	#define MEM_BUFCTRL_MANUAL	BIT(1)
+#define VLD_MEM_VIFIFO_WRAP_COUNT	0x3144
 
 #define DCAC_DMA_CTRL		0x3848
 

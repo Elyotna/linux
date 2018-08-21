@@ -139,7 +139,6 @@ struct amvdec_session {
 	/* Buffers that need to be recycled by the HW */
 	struct list_head bufs_recycle;
 	struct mutex bufs_recycle_lock;
-	unsigned int num_recycle;
 	/* Thread for recycling buffers into the hardware */
 	struct task_struct *recycle_thread;
 	

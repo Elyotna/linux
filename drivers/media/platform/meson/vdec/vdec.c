@@ -62,8 +62,7 @@ static int vdec_recycle_thread(void *data)
 		mutex_lock(&sess->bufs_recycle_lock);
 
 		list_for_each_entry_safe(tmp, n, &sess->bufs_recycle, list) {
-			if (!codec_ops->can_recycle(core) ||
-			    sess->num_recycle < 2)
+			if (!codec_ops->can_recycle(core))
 				break;
 
 			codec_ops->recycle(core, tmp->vb->index);
@@ -71,7 +70,6 @@ static int vdec_recycle_thread(void *data)
 				tmp->vb->index);
 			list_del(&tmp->list);
 			kfree(tmp);
-			sess->num_recycle--;
 		}
 		mutex_unlock(&sess->bufs_recycle_lock);
 
@@ -127,7 +125,6 @@ static void vdec_queue_recycle(struct amvdec_session *sess, struct vb2_buffer *v
 
 	mutex_lock(&sess->bufs_recycle_lock);
 	list_add_tail(&new_buf->list, &sess->bufs_recycle);
-	sess->num_recycle++;
 	mutex_unlock(&sess->bufs_recycle_lock);
 }
 
@@ -239,7 +236,6 @@ static int vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 		goto vififo_free;
 
 	sess->sequence_cap = 0;
-	sess->num_recycle = 0;
 	if (vdec_codec_needs_recycle(sess))
 		sess->recycle_thread = kthread_run(vdec_recycle_thread, sess,
 						   "vdec_recycle");

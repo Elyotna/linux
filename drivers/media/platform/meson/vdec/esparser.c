@@ -214,12 +214,12 @@ static int esparser_queue(struct amvdec_session *sess, struct vb2_v4l2_buffer *v
 	}
 
 	if (codec_ops->num_pending_bufs)
-		num_dst_bufs = codec_ops->num_pending_bufs(sess) + 1;
+		num_dst_bufs = codec_ops->num_pending_bufs(sess);
 
 	num_dst_bufs += v4l2_m2m_num_dst_bufs_ready(sess->m2m_ctx);
 
 	if (esparser_vififo_get_free_space(sess) < payload_size ||
-	    atomic_read(&sess->esparser_queued_bufs) >= (num_dst_bufs - 1))
+	    atomic_read(&sess->esparser_queued_bufs) >= (num_dst_bufs))
 		return -EAGAIN;
 
 	v4l2_m2m_src_buf_remove_by_buf(sess->m2m_ctx, vbuf);
@@ -266,6 +266,9 @@ void esparser_queue_all_src(struct work_struct *work)
 	v4l2_m2m_for_each_src_buf_safe(sess->m2m_ctx, buf, n) {
 		if (esparser_queue(sess, &buf->vb) < 0)
 			break;
+
+		/* Some codecs don't like having data queued in too fast */
+		usleep_range(1000, 2000);
 	}
 	mutex_unlock(&sess->lock);
 }

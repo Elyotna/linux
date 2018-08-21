@@ -17,7 +17,7 @@
 static const struct amvdec_format vdec_formats_gxbb[] = {
 	{
 		.pixfmt = V4L2_PIX_FMT_H264,
-		.min_buffers = 16,
+		.min_buffers = 21,
 		.max_buffers = 32,
 		.max_width = 1920,
 		.max_height = 1080,
@@ -101,7 +101,7 @@ static const struct amvdec_format vdec_formats_gxbb[] = {
 static const struct amvdec_format vdec_formats_gxl[] = {
 	{
 		.pixfmt = V4L2_PIX_FMT_H264,
-		.min_buffers = 16,
+		.min_buffers = 21,
 		.max_buffers = 32,
 		.max_width = 3840,
 		.max_height = 2160,
@@ -185,7 +185,7 @@ static const struct amvdec_format vdec_formats_gxl[] = {
 static const struct amvdec_format vdec_formats_gxm[] = {
 	{
 		.pixfmt = V4L2_PIX_FMT_H264,
-		.min_buffers = 16,
+		.min_buffers = 21,
 		.max_buffers = 32,
 		.max_width = 3840,
 		.max_height = 2160,

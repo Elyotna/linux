@@ -14,23 +14,6 @@
 #define AO_RTI_GEN_PWR_ISO0	0xec
 	#define GEN_PWR_VDEC_1 (BIT(3) | BIT(2))
 
-/* Stream Buffer (stbuf) regs (DOS) */
-#define POWER_CTL_VLD 0x3020
-#define VLD_MEM_VIFIFO_START_PTR 0x3100
-#define VLD_MEM_VIFIFO_CURR_PTR 0x3104
-#define VLD_MEM_VIFIFO_END_PTR 0x3108
-#define VLD_MEM_VIFIFO_CONTROL 0x3110
-	#define MEM_FIFO_CNT_BIT	16
-	#define MEM_FILL_ON_LEVEL	BIT(10)
-	#define MEM_CTRL_EMPTY_EN	BIT(2)
-	#define MEM_CTRL_FILL_EN	BIT(1)
-#define VLD_MEM_VIFIFO_WP 0x3114
-#define VLD_MEM_VIFIFO_RP 0x3118
-#define VLD_MEM_VIFIFO_LEVEL 0x311c
-#define VLD_MEM_VIFIFO_BUF_CNTL 0x3120
-	#define MEM_BUFCTRL_MANUAL	BIT(1)
-#define VLD_MEM_VIFIFO_WRAP_COUNT 0x3144
-
 #define MC_SIZE			(4096 * 4)
 
 static int vdec_1_load_firmware(struct amvdec_session *sess, const char* fwname)

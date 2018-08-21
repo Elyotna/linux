@@ -77,9 +77,6 @@ static void codec_mjpeg_init_scaler(struct amvdec_core *core)
 	amvdec_write_dos(core, PSCALE_BMEM_ADDR, 85);
 	amvdec_write_dos(core, PSCALE_BMEM_DAT, 0x10000);
 
-	amvdec_write_dos(core, DOS_SW_RESET0, (1 << 10));
-	amvdec_write_dos(core, DOS_SW_RESET0, 0);
-
 	amvdec_write_dos(core, PSCALE_RST, 0x7);
 	amvdec_write_dos(core, PSCALE_RST, 0);
 }
