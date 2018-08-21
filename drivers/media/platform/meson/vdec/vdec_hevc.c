@@ -87,9 +87,9 @@ static void vdec_hevc_conf_esparser(struct amvdec_session *sess)
 
 	/* set vififo_vbuf_rp_sel=>vdec_hevc */
 	amvdec_write_dos(core, DOS_GEN_CTRL0, 3 << 1);
-	amvdec_write_dos(core, HEVC_STREAM_CONTROL, amvdec_read_dos(core, HEVC_STREAM_CONTROL) | (1 << 3));
+	amvdec_write_dos(core, HEVC_STREAM_CONTROL, amvdec_read_dos(core, HEVC_STREAM_CONTROL) | BIT(3));
 	amvdec_write_dos(core, HEVC_STREAM_CONTROL, amvdec_read_dos(core, HEVC_STREAM_CONTROL) | 1);
-	amvdec_write_dos(core, HEVC_STREAM_FIFO_CTL, amvdec_read_dos(core, HEVC_STREAM_FIFO_CTL) | (1 << 29));
+	amvdec_write_dos(core, HEVC_STREAM_FIFO_CTL, amvdec_read_dos(core, HEVC_STREAM_FIFO_CTL) | BIT(29));
 }
 
 static u32 vdec_hevc_vififo_level(struct amvdec_session *sess)
@@ -163,11 +163,13 @@ static int vdec_hevc_start(struct amvdec_session *sess)
 
 	codec_ops->start(sess);
 
-	amvdec_write_dos(core, DOS_SW_RESET3, (1<<12)|(1<<11));
+	amvdec_write_dos(core, DOS_SW_RESET3, BIT(12)|BIT(11));
 	amvdec_write_dos(core, DOS_SW_RESET3, 0);
 	amvdec_read_dos(core, DOS_SW_RESET3);
 
 	amvdec_write_dos(core, HEVC_MPSR, 1);
+	/* Let the firmware settle */
+	udelay(10);
 
 	return 0;
 }

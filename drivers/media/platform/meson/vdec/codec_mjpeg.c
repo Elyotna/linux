@@ -121,7 +121,7 @@ static irqreturn_t codec_mjpeg_isr(struct amvdec_session *sess)
 		return IRQ_HANDLED;
 
 	buffer_index = ((reg & 0x7) - 1) & 3;
-	amvdec_dst_buf_done_idx(sess, buffer_index);
+	amvdec_dst_buf_done_idx(sess, buffer_index, V4L2_FIELD_NONE);
 
 	amvdec_write_dos(core, MREG_FROM_AMRISC, 0);
 	return IRQ_HANDLED;

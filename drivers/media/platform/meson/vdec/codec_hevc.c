@@ -499,7 +499,7 @@ static void codec_hevc_output_frames(struct amvdec_session *sess)
 
 		dev_dbg(sess->core->dev, "DONE frame poc %u; vbuf %u\n",
 			tmp->poc, tmp->vbuf->vb2_buf.index);
-		amvdec_dst_buf_done(sess, tmp->vbuf);
+		amvdec_dst_buf_done(sess, tmp->vbuf, V4L2_FIELD_NONE);
 		list_del(&tmp->list);
 		kfree(tmp);
 		hevc->frames_num--;
@@ -569,7 +569,7 @@ static void codec_hevc_setup_buffers_gxl(struct amvdec_session *sess)
 	dma_addr_t buf_uv_paddr = 0;
 	int i;
 
-	amvdec_write_dos(core, HEVCD_MPP_ANC2AXI_TBL_CONF_ADDR, (1 << 2) | (1 << 1));
+	amvdec_write_dos(core, HEVCD_MPP_ANC2AXI_TBL_CONF_ADDR, BIT(2) | BIT(1));
 
 	v4l2_m2m_for_each_dst_buf(sess->m2m_ctx, buf) {
 		buf_y_paddr  = vb2_dma_contig_plane_dma_addr(&buf->vb.vb2_buf, 0);
@@ -658,15 +658,15 @@ static int codec_hevc_start(struct amvdec_session *sess)
 		goto free_hevc;
 
 	amvdec_write_dos(core, HEVC_PARSER_VERSION, 0x5a5a55aa);
-	amvdec_write_dos(core, DOS_SW_RESET3, (1 << 14));
+	amvdec_write_dos(core, DOS_SW_RESET3, BIT(14));
 	amvdec_write_dos(core, HEVC_CABAC_CONTROL, 0);
 	amvdec_write_dos(core, HEVC_PARSER_CORE_CONTROL, 0);
 	amvdec_write_dos(core, HEVC_STREAM_CONTROL, amvdec_read_dos(core, HEVC_STREAM_CONTROL) | 1);
 	amvdec_write_dos(core, HEVC_SHIFT_STARTCODE, 0x00000100);
 	amvdec_write_dos(core, HEVC_SHIFT_EMULATECODE, 0x00000300);
 	writel_relaxed((amvdec_read_dos(core, HEVC_PARSER_INT_CONTROL) & 0x03ffffff) |
-			(3 << 29) | (2 << 26) | (1 << 24) | (1 << 22) | (1 << 7) | (1 << 4) | 1, core->dos_base + HEVC_PARSER_INT_CONTROL);
-	amvdec_write_dos(core, HEVC_SHIFT_STATUS, amvdec_read_dos(core, HEVC_SHIFT_STATUS) | (1 << 1) | 1);
+			(3 << 29) | (2 << 26) | BIT(24) | BIT(22) | BIT(7) | BIT(4) | 1, core->dos_base + HEVC_PARSER_INT_CONTROL);
+	amvdec_write_dos(core, HEVC_SHIFT_STATUS, amvdec_read_dos(core, HEVC_SHIFT_STATUS) | BIT(1) | 1);
 	amvdec_write_dos(core, HEVC_SHIFT_CONTROL, (3 << 6) | (2 << 4) | (2 << 1) | 1);
 	amvdec_write_dos(core, HEVC_CABAC_CONTROL, 1);
 	amvdec_write_dos(core, HEVC_PARSER_CORE_CONTROL, 1);
@@ -678,21 +678,21 @@ static int codec_hevc_start(struct amvdec_session *sess)
 
 	amvdec_write_dos(core, HEVC_DECODE_SIZE, 0);
 
-	amvdec_write_dos(core, HEVC_PARSER_CMD_WRITE, (1 << 16));
+	amvdec_write_dos(core, HEVC_PARSER_CMD_WRITE, BIT(16));
 	for (i = 0; i < ARRAY_SIZE(parser_cmd); ++i)
 		amvdec_write_dos(core, HEVC_PARSER_CMD_WRITE, parser_cmd[i]);
 
 	amvdec_write_dos(core, HEVC_PARSER_CMD_SKIP_0, PARSER_CMD_SKIP_CFG_0);
 	amvdec_write_dos(core, HEVC_PARSER_CMD_SKIP_1, PARSER_CMD_SKIP_CFG_1);
 	amvdec_write_dos(core, HEVC_PARSER_CMD_SKIP_2, PARSER_CMD_SKIP_CFG_2);
-	amvdec_write_dos(core, HEVC_PARSER_IF_CONTROL, (1 << 5) | (1 << 2) | 1);
+	amvdec_write_dos(core, HEVC_PARSER_IF_CONTROL, BIT(5) | BIT(2) | 1);
 
 	amvdec_write_dos(core, HEVCD_IPP_TOP_CNTL, 1);
-	amvdec_write_dos(core, HEVCD_IPP_TOP_CNTL, (1 << 1));
+	amvdec_write_dos(core, HEVCD_IPP_TOP_CNTL, BIT(1));
 
 	/* Enable 2-plane reference read mode for MC */
 	if (sess->pixfmt_cap == V4L2_PIX_FMT_NV12M)
-		amvdec_write_dos(core, HEVCD_MPP_DECOMP_CTL1, 1 << 31);
+		amvdec_write_dos(core, HEVCD_MPP_DECOMP_CTL1, BIT(31));
 
 	amvdec_write_dos(core, HEVC_WAIT_FLAG, 1);
 
@@ -742,7 +742,7 @@ static void codec_hevc_flush_output(struct amvdec_session *sess)
 	struct hevc_frame *tmp, *n;
 
 	list_for_each_entry_safe(tmp, n, &hevc->ref_frames_list, list) {
-		amvdec_dst_buf_done(sess, tmp->vbuf);
+		amvdec_dst_buf_done(sess, tmp->vbuf, V4L2_FIELD_NONE);
 		list_del(&tmp->list);
 		kfree(tmp);
 		hevc->frames_num--;
@@ -1024,16 +1024,16 @@ static void codec_hevc_set_mpred(struct amvdec_session *sess, struct hevc_frame 
 		mv_rd_en = 0;
 
 	val = slice_type |
-	      1 << 2 | // new pic
-	      1 << 3 | // new tile
+	      BIT(2) | // new pic
+	      BIT(3) | // new tile
 	      is_next_slice_segment << 4 |
 	      tmvp_flag << 5 |
 	      hevc->ldc_flag << 6 |
 	      col_from_l0_flag << 7 |
-	      1 << 9 |
-	      1 << 10 |
+	      BIT(9) |
+	      BIT(10) |
 	      mv_rd_en << 11 |
-	      1 << 13 |
+	      BIT(13) |
 	      lcu_size_log2 << 16 |
 	      3 << 20 | plevel << 24;
 	amvdec_write_dos(core, HEVC_MPRED_CTRL0, val);
@@ -1092,7 +1092,7 @@ static void codec_hevc_set_mcrcc(struct amvdec_session *sess)
 	}
 
 	if (hevc->cur_frame->cur_slice_type == P_SLICE) {
-		amvdec_write_dos(core, HEVCD_MPP_ANC_CANVAS_ACCCONFIG_ADDR, 1 << 1);
+		amvdec_write_dos(core, HEVCD_MPP_ANC_CANVAS_ACCCONFIG_ADDR, BIT(1));
 		val = amvdec_read_dos(core, HEVCD_MPP_ANC_CANVAS_DATA_ADDR);
 		val &= 0xffff;
 		val |= (val << 16);
@@ -1113,7 +1113,7 @@ static void codec_hevc_set_mcrcc(struct amvdec_session *sess)
 		val |= (val << 16);
 		amvdec_write_dos(core, HEVCD_MCRCC_CTL2, val);
 
-		amvdec_write_dos(core, HEVCD_MPP_ANC_CANVAS_ACCCONFIG_ADDR, (16 << 8) | (1 << 1));
+		amvdec_write_dos(core, HEVCD_MPP_ANC_CANVAS_ACCCONFIG_ADDR, (16 << 8) | BIT(1));
 		val_2 = amvdec_read_dos(core, HEVCD_MPP_ANC_CANVAS_DATA_ADDR);
 		val_2 &= 0xffff;
 		val_2 |= (val_2 << 16);

@@ -62,7 +62,7 @@ static int codec_mpeg12_start(struct amvdec_session *sess) {
 		goto free_mpeg12;
 	}
 
-	amvdec_write_dos(core, POWER_CTL_VLD, (1 << 4));
+	amvdec_write_dos(core, POWER_CTL_VLD, BIT(4));
 
 	amcodec_helper_set_canvases(sess, core->dos_base + AV_SCRATCH_0);
 	amvdec_write_dos(core, MREG_CO_MV_START, mpeg12->workspace_paddr + SIZE_CCBUF);
@@ -119,7 +119,7 @@ static irqreturn_t codec_mpeg12_isr(struct amvdec_session *sess)
 
 	sess->keyframe_found = 1;
 	buffer_index = ((reg & 0xf) - 1) & 7;
-	amvdec_dst_buf_done_idx(sess, buffer_index);
+	amvdec_dst_buf_done_idx(sess, buffer_index, V4L2_FIELD_NONE);
 
 end:
 	amvdec_write_dos(core, MREG_BUFFEROUT, 0);

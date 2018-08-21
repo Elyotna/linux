@@ -29,6 +29,16 @@
 #define CMD_BAD_WIDTH		7
 #define CMD_BAD_HEIGHT		8
 
+/* Picture type */
+#define PIC_SINGLE_FRAME	0
+#define PIC_TOP_BOT_TOP		1
+#define PIC_BOT_TOP_BOT		2
+#define PIC_DOUBLE_FRAME	3
+#define PIC_TRIPLE_FRAME	4
+#define PIC_TOP_BOT		5
+#define PIC_BOT_TOP		6
+#define PIC_INVALID		7
+
 /* Size of Motion Vector per macroblock */
 #define MB_MV_SIZE 96
 
@@ -92,7 +102,7 @@ static int codec_h264_start(struct amvdec_session *sess) {
 	while (amvdec_read_dos(core, DCAC_DMA_CTRL) & 0x8000) { }
 	while (amvdec_read_dos(core, LMEM_DMA_CTRL) & 0x8000) { }
 
-	amvdec_write_dos(core, POWER_CTL_VLD, amvdec_read_dos(core, POWER_CTL_VLD) | (1 << 9) | (1 << 6));
+	amvdec_write_dos(core, POWER_CTL_VLD, amvdec_read_dos(core, POWER_CTL_VLD) | BIT(9) | BIT(6));
 
 	amvdec_write_dos(core, PSCALE_CTRL, 0);
 	amvdec_write_dos(core, AV_SCRATCH_0, 0);
@@ -107,9 +117,10 @@ static int codec_h264_start(struct amvdec_session *sess) {
 	amvdec_write_dos(core, AV_SCRATCH_9, 0);
 
 	/* Enable "error correction", don't know what it means */
-	amvdec_write_dos(core, AV_SCRATCH_F, (amvdec_read_dos(core, AV_SCRATCH_F) & 0xffffffc3) | (1 << 4) | (1 << 7));
+	amvdec_write_dos(core, AV_SCRATCH_F, (amvdec_read_dos(core, AV_SCRATCH_F) & 0xffffffc3) | BIT(4) | BIT(7));
 
 	amvdec_write_dos(core, MDEC_PIC_DC_THRESH, 0x404038aa);
+
 	return 0;
 }
 
@@ -233,10 +244,7 @@ static void codec_h264_frames_ready(struct amvdec_session *sess, u32 status)
 {
 	struct amvdec_core *core = sess->core;
 	int error_count;
-	int error;
 	int num_frames;
-	int frame_status;
-	unsigned int buffer_index;
 	int i;
 
 	error_count = amvdec_read_dos(core, AV_SCRATCH_D);
@@ -248,9 +256,11 @@ static void codec_h264_frames_ready(struct amvdec_session *sess, u32 status)
 	}
 
 	for (i = 0; i < num_frames; i++) {
-		frame_status = amvdec_read_dos(core, AV_SCRATCH_1 + i*4);
-		buffer_index = frame_status & 0x1f;
-		error = frame_status & 0x200;
+		u32 frame_status = amvdec_read_dos(core, AV_SCRATCH_1 + i*4);
+		u32 buffer_index = frame_status & 0x1f;
+		u32 error = frame_status & 0x200;
+		u32 pic_struct = (frame_status >> 5) & 0x7;
+		u32 field = V4L2_FIELD_NONE;
 
 		/* A buffer decode error means it was decoded,
 		 * but part of the picture will have artifacts.
@@ -260,7 +270,12 @@ static void codec_h264_frames_ready(struct amvdec_session *sess, u32 status)
 			dev_info(core->dev, "Buffer %d decode error\n",
 				 buffer_index);
 
-		amvdec_dst_buf_done_idx(sess, buffer_index);
+		if (pic_struct == PIC_TOP_BOT)
+			field = V4L2_FIELD_INTERLACED_TB;
+		else if (pic_struct == PIC_BOT_TOP)
+			field = V4L2_FIELD_INTERLACED_BT;
+
+		amvdec_dst_buf_done_idx(sess, buffer_index, field);
 	}
 }
 

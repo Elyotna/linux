@@ -147,7 +147,7 @@ static irqreturn_t codec_mpeg4_isr(struct amvdec_session *sess)
 		amvdec_read_dos(core, MP4_NOT_CODED_CNT);
 		amvdec_read_dos(core, MP4_VOP_TIME_INC);
 		buffer_index = reg & 0x7;
-		amvdec_dst_buf_done_idx(sess, buffer_index);
+		amvdec_dst_buf_done_idx(sess, buffer_index, V4L2_FIELD_NONE);
 		amvdec_write_dos(core, MREG_BUFFEROUT, 0);
 	}
 

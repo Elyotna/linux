@@ -231,6 +231,8 @@ static int vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 
 	sess->should_stop = 0;
 	sess->keyframe_found = 0;
+	sess->min_buffers_eos = 0;
+	atomic_set(&sess->esparser_queued_bufs, 0);
 	ret = vdec_poweron(sess);
 	if (ret)
 		goto vififo_free;
@@ -774,50 +776,6 @@ static int vdec_close(struct file *file)
 	return 0;
 }
 
-void amvdec_dst_buf_done(struct amvdec_session *sess, struct vb2_v4l2_buffer *vbuf)
-{
-	unsigned long flags;
-	struct amvdec_timestamp *tmp;
-	struct device *dev = sess->core->dev_dec;
-
-	spin_lock_irqsave(&sess->bufs_spinlock, flags);
-	if (list_empty(&sess->bufs)) {
-		dev_err(dev, "Buffer %u done but list is empty\n",
-			vbuf->vb2_buf.index);
-
-		v4l2_m2m_buf_done(vbuf, VB2_BUF_STATE_ERROR);
-		amvdec_abort(sess);
-		goto unlock;
-	}
-
-	tmp = list_first_entry(&sess->bufs, struct amvdec_timestamp, list);
-
-	vbuf->vb2_buf.planes[0].bytesused = amvdec_get_output_size(sess);
-	vbuf->vb2_buf.planes[1].bytesused = amvdec_get_output_size(sess) / 2;
-	vbuf->vb2_buf.timestamp = tmp->ts;
-	vbuf->sequence = sess->sequence_cap++;
-
-	list_del(&tmp->list);
-	kfree(tmp);
-
-	if (sess->should_stop && list_empty(&sess->bufs)) {
-		const struct v4l2_event ev = { .type = V4L2_EVENT_EOS };
-		dev_dbg(dev, "Signaling EOS\n");
-		v4l2_event_queue_fh(&sess->fh, &ev);
-		vbuf->flags |= V4L2_BUF_FLAG_LAST;
-	}
-
-	v4l2_m2m_buf_done(vbuf, VB2_BUF_STATE_DONE);
-	atomic_dec(&sess->esparser_queued_bufs);
-
-unlock:
-	spin_unlock_irqrestore(&sess->bufs_spinlock, flags);
-
-	/* Buffer done probably means the vififo got freed */
-	schedule_work(&sess->esparser_queue_work);
-}
-EXPORT_SYMBOL_GPL(amvdec_dst_buf_done);
-
 static void vdec_rm_first_ts(struct amvdec_session *sess)
 {
 	unsigned long flags;
@@ -838,7 +796,64 @@ unlock:
 	spin_unlock_irqrestore(&sess->bufs_spinlock, flags);
 }
 
-void amvdec_dst_buf_done_idx(struct amvdec_session *sess, u32 buf_idx)
+void amvdec_dst_buf_done(struct amvdec_session *sess, struct vb2_v4l2_buffer *vbuf, u32 field)
+{
+	unsigned long flags;
+	struct amvdec_timestamp *tmp;
+	struct device *dev = sess->core->dev_dec;
+
+	spin_lock_irqsave(&sess->bufs_spinlock, flags);
+	if (list_empty(&sess->bufs)) {
+		dev_err(dev, "Buffer %u done but list is empty\n",
+			vbuf->vb2_buf.index);
+
+		v4l2_m2m_buf_done(vbuf, VB2_BUF_STATE_ERROR);
+		amvdec_abort(sess);
+		spin_unlock_irqrestore(&sess->bufs_spinlock, flags);
+		goto end;
+	}
+
+	tmp = list_first_entry(&sess->bufs, struct amvdec_timestamp, list);
+
+	vbuf->vb2_buf.planes[0].bytesused = amvdec_get_output_size(sess);
+	vbuf->vb2_buf.planes[1].bytesused = amvdec_get_output_size(sess) / 2;
+	vbuf->vb2_buf.timestamp = tmp->ts;
+	vbuf->sequence = sess->sequence_cap++;
+
+	list_del(&tmp->list);
+	kfree(tmp);
+	spin_unlock_irqrestore(&sess->bufs_spinlock, flags);
+
+	atomic_dec(&sess->esparser_queued_bufs);
+	/* Interlaced content has 2 src buffers for
+	 * 1 dst buffer. Drop an additional entry.
+	 */
+	if (field != V4L2_FIELD_NONE) {
+		atomic_dec(&sess->esparser_queued_bufs);
+		vdec_rm_first_ts(sess);
+		sess->min_buffers_eos = 1;
+	}
+
+	if (sess->should_stop &&
+	    atomic_read(&sess->esparser_queued_bufs) <= sess->min_buffers_eos) {
+		const struct v4l2_event ev = { .type = V4L2_EVENT_EOS };
+		dev_dbg(dev, "Signaling EOS\n");
+		v4l2_event_queue_fh(&sess->fh, &ev);
+		vbuf->flags |= V4L2_BUF_FLAG_LAST;
+	} else if (sess->should_stop)
+		dev_dbg(dev, "should_stop, %u bufs remain\n",
+			atomic_read(&sess->esparser_queued_bufs));
+
+	vbuf->field = field;
+	v4l2_m2m_buf_done(vbuf, VB2_BUF_STATE_DONE);
+
+end:
+	/* Buffer done probably means the vififo got freed */
+	schedule_work(&sess->esparser_queue_work);
+}
+EXPORT_SYMBOL_GPL(amvdec_dst_buf_done);
+
+void amvdec_dst_buf_done_idx(struct amvdec_session *sess, u32 buf_idx, u32 field)
 {
 	struct vb2_v4l2_buffer *vbuf;
 	struct device *dev = sess->core->dev_dec;
@@ -852,7 +867,7 @@ void amvdec_dst_buf_done_idx(struct amvdec_session *sess, u32 buf_idx)
 		return;
 	}
 
-	amvdec_dst_buf_done(sess, vbuf);
+	amvdec_dst_buf_done(sess, vbuf, field);
 }
 EXPORT_SYMBOL_GPL(amvdec_dst_buf_done_idx);
 

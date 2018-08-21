@@ -149,13 +149,20 @@ struct amvdec_session {
 	/* Tracks last time we got a vdec IRQ */
 	u64 last_irq_jiffies;
 
+	/* Minimum remaining queued src buffers to trigger EOS
+	 * after userspace sent CMD_STOP.
+	 * Can be 1 in case of an interlaced bitstream that ends with half
+	 * a frame.
+	 */
+	u32 min_buffers_eos;
+
 	/* Codec private data */
 	void *priv;
 };
 
 u32 amvdec_get_output_size(struct amvdec_session *sess);
-void amvdec_dst_buf_done_idx(struct amvdec_session *sess, u32 buf_idx);
-void amvdec_dst_buf_done(struct amvdec_session *sess, struct vb2_v4l2_buffer *vbuf);
+void amvdec_dst_buf_done_idx(struct amvdec_session *sess, u32 buf_idx, u32 field);
+void amvdec_dst_buf_done(struct amvdec_session *sess, struct vb2_v4l2_buffer *vbuf, u32 field);
 void amvdec_add_ts_reorder(struct amvdec_session *sess, u64 ts);
 void amvdec_remove_ts(struct amvdec_session *sess, u64 ts);
 void amvdec_abort(struct amvdec_session *sess);

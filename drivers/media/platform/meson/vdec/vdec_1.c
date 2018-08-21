@@ -50,7 +50,7 @@ static int vdec_1_load_firmware(struct amvdec_session *sess, const char* fwname)
 	amvdec_write_dos(core, MPSR, 0);
 	amvdec_write_dos(core, CPSR, 0);
 
-	amvdec_write_dos(core, MDEC_PIC_DC_CTRL, amvdec_read_dos(core, MDEC_PIC_DC_CTRL) & ~(1<<31));
+	amvdec_write_dos(core, MDEC_PIC_DC_CTRL, amvdec_read_dos(core, MDEC_PIC_DC_CTRL) & ~BIT(31));
 
 	amvdec_write_dos(core, IMEM_DMA_ADR, mc_addr_map);
 	amvdec_write_dos(core, IMEM_DMA_COUNT, MC_SIZE / 4);
@@ -79,7 +79,7 @@ int vdec_1_stbuf_power_up(struct amvdec_session *sess) {
 
 	amvdec_write_dos(core, VLD_MEM_VIFIFO_CONTROL, 0);
 	amvdec_write_dos(core, VLD_MEM_VIFIFO_WRAP_COUNT, 0);
-	amvdec_write_dos(core, POWER_CTL_VLD, 1 << 4);
+	amvdec_write_dos(core, POWER_CTL_VLD, BIT(4));
 
 	amvdec_write_dos(core, VLD_MEM_VIFIFO_START_PTR, sess->vififo_paddr);
 	amvdec_write_dos(core, VLD_MEM_VIFIFO_CURR_PTR, sess->vififo_paddr);
@@ -145,7 +145,7 @@ static int vdec_1_start(struct amvdec_session *sess)
 	amvdec_write_dos(core, DOS_VDEC_MCRCC_STALL_CTRL, 0x00000000);
 
 	amvdec_write_dos(core, GCLK_EN, 0x3ff);
-	amvdec_write_dos(core, MDEC_PIC_DC_CTRL, amvdec_read_dos(core, MDEC_PIC_DC_CTRL) & ~(1<<31));
+	amvdec_write_dos(core, MDEC_PIC_DC_CTRL, amvdec_read_dos(core, MDEC_PIC_DC_CTRL) & ~BIT(31));
 
 	vdec_1_stbuf_power_up(sess);
 
@@ -165,7 +165,7 @@ static int vdec_1_start(struct amvdec_session *sess)
 
 	/* Enable 2-plane output */
 	if (sess->pixfmt_cap == V4L2_PIX_FMT_NV12M)
-		amvdec_write_dos(core, MDEC_PIC_DC_CTRL, amvdec_read_dos(core, MDEC_PIC_DC_CTRL) | (1 << 17));
+		amvdec_write_dos(core, MDEC_PIC_DC_CTRL, amvdec_read_dos(core, MDEC_PIC_DC_CTRL) | BIT(17));
 
 	/* Enable firmware processor */
 	amvdec_write_dos(core, MPSR, 1);
@@ -187,7 +187,7 @@ static int vdec_1_stop(struct amvdec_session *sess)
 
 	while (amvdec_read_dos(core, IMEM_DMA_CTRL) & 0x8000) { }
 
-	amvdec_write_dos(core, DOS_SW_RESET0, (1<<12)|(1<<11));
+	amvdec_write_dos(core, DOS_SW_RESET0, BIT(12)|BIT(11));
 	amvdec_write_dos(core, DOS_SW_RESET0, 0);
 	amvdec_read_dos(core, DOS_SW_RESET0);
 
