@@ -59,6 +59,8 @@ struct codec_h264 {
 	/* Buffer for parsed SEI data */
 	void      *sei_vaddr;
 	dma_addr_t sei_paddr;
+
+	u32 seq_info;
 };
 
 static int codec_h264_can_recycle(struct amvdec_core *core)
@@ -193,6 +195,7 @@ static void codec_h264_set_param(struct amvdec_session *sess) {
 	amvdec_write_dos(core, AV_SCRATCH_9, 0);
 
 	parsed_info = amvdec_read_dos(core, AV_SCRATCH_1);
+	h264->seq_info = amvdec_read_dos(core, AV_SCRATCH_2);
 
 	/* Total number of 16x16 macroblocks */
 	mb_total = (parsed_info >> 8) & 0xffff;
@@ -243,6 +246,7 @@ static void codec_h264_set_param(struct amvdec_session *sess) {
 static void codec_h264_frames_ready(struct amvdec_session *sess, u32 status)
 {
 	struct amvdec_core *core = sess->core;
+	struct codec_h264 *h264 = sess->priv;
 	int error_count;
 	int num_frames;
 	int i;
@@ -270,10 +274,12 @@ static void codec_h264_frames_ready(struct amvdec_session *sess, u32 status)
 			dev_info(core->dev, "Buffer %d decode error\n",
 				 buffer_index);
 
-		if (pic_struct == PIC_TOP_BOT)
-			field = V4L2_FIELD_INTERLACED_TB;
-		else if (pic_struct == PIC_BOT_TOP)
-			field = V4L2_FIELD_INTERLACED_BT;
+		if (h264->seq_info & 0x4) {
+			if (pic_struct == PIC_TOP_BOT)
+				field = V4L2_FIELD_INTERLACED_TB;
+			else if (pic_struct == PIC_BOT_TOP)
+				field = V4L2_FIELD_INTERLACED_BT;
+		}
 
 		amvdec_dst_buf_done_idx(sess, buffer_index, field);
 	}
@@ -307,14 +313,15 @@ static irqreturn_t codec_h264_threaded_isr(struct amvdec_session *sess)
 		size = (amvdec_read_dos(core, AV_SCRATCH_1) + 1) * 16;
 		dev_err(core->dev, "Unsupported video height: %u\n", size);
 		goto abort;
-	case 9: /* Unused but not worth printing for */
+	case 0: /* Unused but not worth printing for */
+	case 9:
 		break;
 	default:
 		dev_info(core->dev, "Unexpected H264 ISR: %08X\n", cmd);
 		break;
 	}
 
-	if (cmd != CMD_SET_PARAM)
+	if (cmd && cmd != CMD_SET_PARAM)
 		amvdec_write_dos(core, AV_SCRATCH_0, 0);
 
 	/* Decoder has some SEI data for us ; ignore */
