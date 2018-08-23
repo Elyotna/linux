@@ -7,7 +7,9 @@
 #include <media/videobuf2-dma-contig.h>
 
 #include "codec_helpers.h"
-#include "canvas.h"
+
+#define NUM_CANVAS_NV12 2
+#define NUM_CANVAS_YUV420 3
 
 /* 4 KiB per 64x32 block */
 u32 amcodec_am21c_body_size(u32 width, u32 height)
@@ -36,99 +38,141 @@ u32 amcodec_am21c_size(u32 width, u32 height)
 }
 EXPORT_SYMBOL_GPL(amcodec_am21c_size);
 
-static void
-codec_helper_set_canvas_yuv420m(struct amvdec_session *sess, void *reg_base)
-{
-	struct amvdec_core *core = sess->core;
-	u32 width = ALIGN(sess->width, 64);
-	u32 height = ALIGN(sess->height, 64);
-	struct v4l2_m2m_buffer *buf;
+static int amvdec_alloc_canvas(struct amvdec_session *sess, u8 *canvas_id) {
+	int ret;
 
-	/* Setup YUV420 canvases for Decoded Picture Buffer (dpb)
-	 * Map them to the user buffers' planes
-	 */
-	v4l2_m2m_for_each_dst_buf(sess->m2m_ctx, buf) {
-		u32 buf_idx    = buf->vb.vb2_buf.index;
-		u32 cnv_y_idx  = 128 + buf_idx * 3;
-		u32 cnv_u_idx = cnv_y_idx + 1;
-		u32 cnv_v_idx = cnv_y_idx + 2;
-		dma_addr_t buf_y_paddr  =
-			vb2_dma_contig_plane_dma_addr(&buf->vb.vb2_buf, 0);
-		dma_addr_t buf_u_paddr =
-			vb2_dma_contig_plane_dma_addr(&buf->vb.vb2_buf, 1);
-		dma_addr_t buf_v_paddr =
-			vb2_dma_contig_plane_dma_addr(&buf->vb.vb2_buf, 2);
-
-		/* Y plane */
-		vdec_canvas_setup(core->dmc_base, cnv_y_idx, buf_y_paddr,
-			width, height, MESON_CANVAS_WRAP_NONE,
-			MESON_CANVAS_BLKMODE_LINEAR);
-
-		/* U plane */
-		vdec_canvas_setup(core->dmc_base, cnv_u_idx, buf_u_paddr,
-			width / 2, height / 2, MESON_CANVAS_WRAP_NONE,
-			MESON_CANVAS_BLKMODE_LINEAR);
-
-		/* V plane */
-		vdec_canvas_setup(core->dmc_base, cnv_v_idx, buf_v_paddr,
-			width / 2, height / 2, MESON_CANVAS_WRAP_NONE,
-			MESON_CANVAS_BLKMODE_LINEAR);
-
-		writel_relaxed(((cnv_v_idx) << 16) |
-			       ((cnv_u_idx) << 8)  |
-				(cnv_y_idx), reg_base + buf_idx * 4);
+	if (sess->canvas_num >= MAX_CANVAS) {
+		dev_err(sess->core->dev, "Reached max number of canvas\n");
+		return -ENOMEM;
 	}
+
+	ret = meson_canvas_alloc(sess->core->canvas, canvas_id);
+	if (ret)
+		return ret;
+
+	sess->canvas_alloc[sess->canvas_num++] = *canvas_id;
+	return 0;
 }
 
-static void
-codec_helper_set_canvas_nv12m(struct amvdec_session *sess, void *reg_base)
+static int codec_helper_set_canvas_yuv420m(struct amvdec_session *sess,
+					   struct vb2_buffer *vb, u32 width,
+					   u32 height, u32 reg)
 {
 	struct amvdec_core *core = sess->core;
-	u32 width = ALIGN(sess->width, 64);
-	u32 height = ALIGN(sess->height, 64);
-	struct v4l2_m2m_buffer *buf;
+	u8 canvas_id[NUM_CANVAS_YUV420]; // Y U/V
+	dma_addr_t buf_paddr[NUM_CANVAS_YUV420]; // Y U/V
+	int ret, i;
 
-	/* Setup NV12 canvases for Decoded Picture Buffer (dpb)
-	 * Map them to the user buffers' planes
-	 */
-	v4l2_m2m_for_each_dst_buf(sess->m2m_ctx, buf) {
-		u32 buf_idx    = buf->vb.vb2_buf.index;
-		u32 cnv_y_idx  = 128 + buf_idx * 2;
-		u32 cnv_uv_idx = cnv_y_idx + 1;
-		dma_addr_t buf_y_paddr  =
-			vb2_dma_contig_plane_dma_addr(&buf->vb.vb2_buf, 0);
-		dma_addr_t buf_uv_paddr =
-			vb2_dma_contig_plane_dma_addr(&buf->vb.vb2_buf, 1);
+	for (i = 0; i < NUM_CANVAS_YUV420; ++i) {
+		ret = amvdec_alloc_canvas(sess, &canvas_id[i]);
+		if (ret)
+			return ret;
 
-		/* Y plane */
-		vdec_canvas_setup(core->dmc_base, cnv_y_idx, buf_y_paddr,
-			width, height, MESON_CANVAS_WRAP_NONE,
-			MESON_CANVAS_BLKMODE_LINEAR);
-
-		/* U/V plane */
-		vdec_canvas_setup(core->dmc_base, cnv_uv_idx, buf_uv_paddr,
-			width, height / 2, MESON_CANVAS_WRAP_NONE,
-			MESON_CANVAS_BLKMODE_LINEAR);
-
-		writel_relaxed(((cnv_uv_idx) << 16) |
-			       ((cnv_uv_idx) << 8)  |
-				(cnv_y_idx), reg_base + buf_idx * 4);
+		buf_paddr[i] =
+		    vb2_dma_contig_plane_dma_addr(vb, i);
 	}
+
+	/* Y plane */
+	meson_canvas_config(core->canvas, canvas_id[0], buf_paddr[0],
+		width, height, MESON_CANVAS_WRAP_NONE,
+		MESON_CANVAS_BLKMODE_LINEAR,
+		MESON_CANVAS_ENDIAN_SWAP64);
+
+	/* U plane */
+	meson_canvas_config(core->canvas, canvas_id[1], buf_paddr[1],
+		width / 2, height / 2, MESON_CANVAS_WRAP_NONE,
+		MESON_CANVAS_BLKMODE_LINEAR,
+		MESON_CANVAS_ENDIAN_SWAP64);
+
+	/* V plane */
+	meson_canvas_config(core->canvas, canvas_id[2], buf_paddr[2],
+		width / 2, height / 2, MESON_CANVAS_WRAP_NONE,
+		MESON_CANVAS_BLKMODE_LINEAR,
+		MESON_CANVAS_ENDIAN_SWAP64);
+
+	amvdec_write_dos(core, reg,
+			 ((canvas_id[2]) << 16) |
+			 ((canvas_id[1]) << 8)  |
+			 (canvas_id[0]));
+
+	return 0;
 }
 
-void amcodec_helper_set_canvases(struct amvdec_session *sess, void *reg_base)
+static int codec_helper_set_canvas_nv12m(struct amvdec_session *sess,
+					 struct vb2_buffer *vb, u32 width,
+					 u32 height, u32 reg)
 {
+	struct amvdec_core *core = sess->core;
+	u8 canvas_id[NUM_CANVAS_NV12]; // Y U/V
+	dma_addr_t buf_paddr[NUM_CANVAS_NV12]; // Y U/V
+	int ret, i;
+
+	for (i = 0; i < NUM_CANVAS_NV12; ++i) {
+		ret = amvdec_alloc_canvas(sess, &canvas_id[i]);
+		if (ret)
+			return ret;
+
+		buf_paddr[i] =
+		    vb2_dma_contig_plane_dma_addr(vb, i);
+	}
+
+	/* Y plane */
+	meson_canvas_config(core->canvas, canvas_id[0], buf_paddr[0],
+		width, height, MESON_CANVAS_WRAP_NONE,
+		MESON_CANVAS_BLKMODE_LINEAR,
+		MESON_CANVAS_ENDIAN_SWAP64);
+
+	/* U/V plane */
+	meson_canvas_config(core->canvas, canvas_id[1], buf_paddr[1],
+		width, height / 2, MESON_CANVAS_WRAP_NONE,
+		MESON_CANVAS_BLKMODE_LINEAR,
+		MESON_CANVAS_ENDIAN_SWAP64);
+
+	amvdec_write_dos(core, reg,
+			 ((canvas_id[1]) << 16) |
+			 ((canvas_id[1]) << 8)  |
+			 (canvas_id[0]));
+
+	return 0;
+}
+
+int amcodec_helper_set_canvases(struct amvdec_session *sess,
+				u32 reg_base[], u32 reg_num[])
+{
+	struct v4l2_m2m_buffer *buf;
 	u32 pixfmt = sess->pixfmt_cap;
+	u32 width = ALIGN(sess->width, 64);
+	u32 height = ALIGN(sess->height, 64);
+	u32 reg_cur = reg_base[0];
+	u32 reg_num_cur = 0;
+	u32 reg_base_cur = 0;
 
-	switch (pixfmt) {
-	case V4L2_PIX_FMT_NV12M:
-		codec_helper_set_canvas_nv12m(sess, reg_base);
-		break;
-	case V4L2_PIX_FMT_YUV420M:
-		codec_helper_set_canvas_yuv420m(sess, reg_base);
-		break;
-	default:
-		dev_err(sess->core->dev, "Unsupported pixfmt %08X\n", pixfmt);
-	};
+	v4l2_m2m_for_each_dst_buf(sess->m2m_ctx, buf) {
+		switch (pixfmt) {
+		case V4L2_PIX_FMT_NV12M:
+			return codec_helper_set_canvas_nv12m(sess, &buf->vb.vb2_buf, width, height, reg_cur);
+			break;
+		case V4L2_PIX_FMT_YUV420M:
+			return codec_helper_set_canvas_yuv420m(sess, &buf->vb.vb2_buf, width, height, reg_cur);
+			break;
+		default:
+			dev_err(sess->core->dev, "Unsupported pixfmt %08X\n",
+				pixfmt);
+			return -EINVAL;
+		};
+
+		reg_num_cur++;
+		if (reg_num_cur >= reg_num[reg_base_cur]) {
+			reg_base_cur++;
+			reg_num_cur = 0;
+		}
+
+		if (!reg_base[reg_base_cur])
+			return -EINVAL;
+
+		reg_cur = reg_base[reg_base_cur] + reg_num_cur * 4;
+	}
+
+	return 0;
 }
 EXPORT_SYMBOL_GPL(amcodec_helper_set_canvases);

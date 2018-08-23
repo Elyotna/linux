@@ -19,7 +19,6 @@
 
 #include "vdec.h"
 #include "esparser.h"
-#include "canvas.h"
 #include "vdec_1.h"
 #include "codec_helpers.h"
 
@@ -262,6 +261,16 @@ bufs_done:
 	return ret;
 }
 
+static void vdec_free_canvas(struct amvdec_session *sess)
+{
+	int i;
+
+	for (i = 0; i < sess->canvas_num; ++i)
+		meson_canvas_free(sess->core->canvas, sess->canvas_alloc[i]);
+
+	sess->canvas_num = 0;
+}
+
 static void vdec_stop_streaming(struct vb2_queue *q)
 {
 	struct amvdec_session *sess = vb2_get_drv_priv(q);
@@ -273,6 +282,7 @@ static void vdec_stop_streaming(struct vb2_queue *q)
 		if (vdec_codec_needs_recycle(sess))
 			kthread_stop(sess->recycle_thread);
 		vdec_poweroff(sess);
+		vdec_free_canvas(sess);
 		dma_free_coherent(sess->core->dev, sess->vififo_size, sess->vififo_vaddr, sess->vififo_paddr);
 		INIT_LIST_HEAD(&sess->bufs);
 		INIT_LIST_HEAD(&sess->bufs_recycle);
@@ -1034,19 +1044,16 @@ static int vdec_probe(struct platform_device *pdev)
 		return PTR_ERR(core->esparser_base);
 	}
 
-	r = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dmc");
-	core->dmc_base = devm_ioremap(dev, r->start, resource_size(r));
-	if (IS_ERR(core->dmc_base)) {
-		dev_err(dev, "Couldn't remap DMC memory\n");
-		return PTR_ERR(core->dmc_base);
-	}
-
 	core->regmap_ao = syscon_regmap_lookup_by_phandle(dev->of_node,
 						"amlogic,ao-sysctrl");
 	if (IS_ERR(core->regmap_ao)) {
 		dev_err(dev, "Couldn't regmap AO sysctrl\n");
 		return PTR_ERR(core->regmap_ao);
 	}
+
+	core->canvas = meson_canvas_get(dev);
+	if (!core->canvas)
+		return PTR_ERR(core->canvas);
 
 	core->dos_parser_clk = devm_clk_get(dev, "dos_parser");
 	if (IS_ERR(core->dos_parser_clk))

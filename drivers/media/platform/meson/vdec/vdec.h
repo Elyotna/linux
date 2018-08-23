@@ -6,11 +6,15 @@
 #ifndef __MESON_VDEC_CORE_H_
 #define __MESON_VDEC_CORE_H_
 
+/* 32 buffers in 3-plane YUV420 */
+#define MAX_CANVAS (32 * 3)
+
 #include <linux/regmap.h>
 #include <linux/list.h>
 #include <media/videobuf2-v4l2.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
+#include <linux/soc/amlogic/meson-canvas.h>
 
 #include "vdec_platform.h"
 
@@ -34,12 +38,13 @@ struct amvdec_session;
 struct amvdec_core {
 	void __iomem *dos_base;
 	void __iomem *esparser_base;
-	void __iomem *dmc_base;
 	struct regmap *regmap_ao;
 
 	struct device *dev;
 	struct device *dev_dec;
 	const struct vdec_platform *platform;
+
+	struct meson_canvas *canvas;
 
 	struct clk *dos_parser_clk;
 	struct clk *dos_clk;
@@ -130,6 +135,10 @@ struct amvdec_session {
 
 	/* Is set to 1 once the first keyframe has been parsed */
 	unsigned int keyframe_found;
+
+	/* Allocated canvas */
+	u8 canvas_alloc[MAX_CANVAS];
+	u32 canvas_num;
 
 	/* Big contiguous area for the VIFIFO */
 	void *vififo_vaddr;

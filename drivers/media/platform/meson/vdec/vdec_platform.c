@@ -64,7 +64,7 @@ static const struct amvdec_format vdec_formats_gxbb[] = {
 		.vdec_ops = &vdec_1_ops,
 		.codec_ops = &codec_mpeg4_ops,
 		.firmware_path = "meson/gx/vmpeg4_mc_5",
-		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, 0 },
+		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, V4L2_PIX_FMT_YUV420M, 0 },
 	}, {
 		.pixfmt = V4L2_PIX_FMT_H263,
 		.min_buffers = 8,
@@ -74,7 +74,7 @@ static const struct amvdec_format vdec_formats_gxbb[] = {
 		.vdec_ops = &vdec_1_ops,
 		.codec_ops = &codec_mpeg4_ops,
 		.firmware_path = "meson/gx/h263_mc",
-		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, 0 },
+		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, V4L2_PIX_FMT_YUV420M, 0 },
 	}, {
 		.pixfmt = V4L2_PIX_FMT_XVID,
 		.min_buffers = 8,
@@ -84,7 +84,7 @@ static const struct amvdec_format vdec_formats_gxbb[] = {
 		.vdec_ops = &vdec_1_ops,
 		.codec_ops = &codec_mpeg4_ops,
 		.firmware_path = "meson/gx/vmpeg4_mc_5",
-		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, 0 },
+		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, V4L2_PIX_FMT_YUV420M, 0 },
 	}, {
 		.pixfmt = V4L2_PIX_FMT_MJPEG,
 		.min_buffers = 4,
@@ -148,7 +148,7 @@ static const struct amvdec_format vdec_formats_gxl[] = {
 		.vdec_ops = &vdec_1_ops,
 		.codec_ops = &codec_mpeg4_ops,
 		.firmware_path = "meson/gx/vmpeg4_mc_5",
-		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, 0 },
+		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, V4L2_PIX_FMT_YUV420M, 0 },
 	}, {
 		.pixfmt = V4L2_PIX_FMT_H263,
 		.min_buffers = 8,
@@ -158,7 +158,7 @@ static const struct amvdec_format vdec_formats_gxl[] = {
 		.vdec_ops = &vdec_1_ops,
 		.codec_ops = &codec_mpeg4_ops,
 		.firmware_path = "meson/gx/h263_mc",
-		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, 0 },
+		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, V4L2_PIX_FMT_YUV420M, 0 },
 	}, {
 		.pixfmt = V4L2_PIX_FMT_XVID,
 		.min_buffers = 8,
@@ -168,7 +168,7 @@ static const struct amvdec_format vdec_formats_gxl[] = {
 		.vdec_ops = &vdec_1_ops,
 		.codec_ops = &codec_mpeg4_ops,
 		.firmware_path = "meson/gx/vmpeg4_mc_5",
-		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, 0 },
+		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, V4L2_PIX_FMT_YUV420M, 0 },
 	}, {
 		.pixfmt = V4L2_PIX_FMT_MJPEG,
 		.min_buffers = 4,
@@ -232,7 +232,7 @@ static const struct amvdec_format vdec_formats_gxm[] = {
 		.vdec_ops = &vdec_1_ops,
 		.codec_ops = &codec_mpeg4_ops,
 		.firmware_path = "meson/gx/vmpeg4_mc_5",
-		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, 0 },
+		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, V4L2_PIX_FMT_YUV420M, 0 },
 	}, {
 		.pixfmt = V4L2_PIX_FMT_H263,
 		.min_buffers = 8,
@@ -242,7 +242,7 @@ static const struct amvdec_format vdec_formats_gxm[] = {
 		.vdec_ops = &vdec_1_ops,
 		.codec_ops = &codec_mpeg4_ops,
 		.firmware_path = "meson/gx/h263_mc",
-		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, 0 },
+		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, V4L2_PIX_FMT_YUV420M, 0 },
 	}, {
 		.pixfmt = V4L2_PIX_FMT_XVID,
 		.min_buffers = 8,
@@ -252,7 +252,7 @@ static const struct amvdec_format vdec_formats_gxm[] = {
 		.vdec_ops = &vdec_1_ops,
 		.codec_ops = &codec_mpeg4_ops,
 		.firmware_path = "meson/gx/vmpeg4_mc_5",
-		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, 0 },
+		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, V4L2_PIX_FMT_YUV420M, 0 },
 	}, {
 		.pixfmt = V4L2_PIX_FMT_MJPEG,
 		.min_buffers = 4,

@@ -8,7 +8,6 @@
 #include <media/videobuf2-dma-contig.h>
 
 #include "codec_hevc.h"
-#include "canvas.h"
 #include "dos_regs.h"
 #include "hevc_regs.h"
 #include "codec_helpers.h"

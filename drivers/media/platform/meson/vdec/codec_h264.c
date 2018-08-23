@@ -8,7 +8,6 @@
 
 #include "codec_h264.h"
 #include "codec_helpers.h"
-#include "canvas.h"
 #include "dos_regs.h"
 
 #define SIZE_EXT_FW	(20 * SZ_1K)
@@ -213,7 +212,8 @@ static void codec_h264_set_param(struct amvdec_session *sess) {
 	mb_height = ALIGN(mb_height, 4);
 	mb_total = mb_width * mb_height;
 
-	amcodec_helper_set_canvases(sess, core->dos_base + ANC0_CANVAS_ADDR);
+	amcodec_helper_set_canvases(sess, (u32[]){ ANC0_CANVAS_ADDR, 0 },
+				    (u32[]){ 24, 0 });
 
 	if (max_reference_size > max_dpb_size)
 		max_dpb_size = max_reference_size;

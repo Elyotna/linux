@@ -8,7 +8,6 @@
 
 #include "codec_mpeg4.h"
 #include "codec_helpers.h"
-#include "canvas.h"
 #include "dos_regs.h"
 
 #define SIZE_WORKSPACE		SZ_1M
@@ -44,45 +43,6 @@ static void codec_mpeg4_recycle(struct amvdec_core *core, u32 buf_idx)
 	amvdec_write_dos(core, MREG_BUFFERIN, ~(1 << buf_idx));
 }
 
-/* The MPEG4 canvas regs are not contiguous,
- * handle it specifically instead of using the helper
- * AV_SCRATCH_0 - AV_SCRATCH_3  ;  AV_SCRATCH_G - AV_SCRATCH_J
- */
-void codec_mpeg4_set_canvases(struct amvdec_session *sess) {
-	struct v4l2_m2m_buffer *buf;
-	struct amvdec_core *core = sess->core;
-	void *current_reg = core->dos_base + AV_SCRATCH_0;
-	u32 width = ALIGN(sess->width, 64);
-	u32 height = ALIGN(sess->height, 64);
-
-	/* Setup NV12 canvases for Decoded Picture Buffer (dpb)
-	 * Map them to the user buffers' planes
-	 */
-	v4l2_m2m_for_each_dst_buf(sess->m2m_ctx, buf) {
-		u32 buf_idx    = buf->vb.vb2_buf.index;
-		u32 cnv_y_idx  = buf_idx * 2;
-		u32 cnv_uv_idx = buf_idx * 2 + 1;
-		dma_addr_t buf_y_paddr  =
-			vb2_dma_contig_plane_dma_addr(&buf->vb.vb2_buf, 0);
-		dma_addr_t buf_uv_paddr =
-			vb2_dma_contig_plane_dma_addr(&buf->vb.vb2_buf, 1);
-
-		/* Y plane */
-		vdec_canvas_setup(core->dmc_base, cnv_y_idx, buf_y_paddr, width, height, MESON_CANVAS_WRAP_NONE, MESON_CANVAS_BLKMODE_LINEAR);
-
-		/* U/V plane */
-		vdec_canvas_setup(core->dmc_base, cnv_uv_idx, buf_uv_paddr, width, height / 2, MESON_CANVAS_WRAP_NONE, MESON_CANVAS_BLKMODE_LINEAR);
-
-		writel_relaxed(((cnv_uv_idx) << 16) |
-			       ((cnv_uv_idx) << 8)  |
-				(cnv_y_idx), current_reg);
-
-		current_reg += 4;
-		if (current_reg == core->dos_base + AV_SCRATCH_4)
-			current_reg = core->dos_base + AV_SCRATCH_G;
-	}
-}
-
 static int codec_mpeg4_start(struct amvdec_session *sess) {
 	struct amvdec_core *core = sess->core;
 	struct codec_mpeg4 *mpeg4 = sess->priv;
@@ -104,7 +64,9 @@ static int codec_mpeg4_start(struct amvdec_session *sess) {
 		goto free_mpeg4;
 	}
 
-	codec_mpeg4_set_canvases(sess);
+	amcodec_helper_set_canvases(sess,
+				    (u32[]){ AV_SCRATCH_0, AV_SCRATCH_G, 0 },
+				    (u32[]){ 4, 4, 0 });
 
 	amvdec_write_dos(core, MEM_OFFSET_REG,
 			 mpeg4->workspace_paddr - DCAC_BUFF_START_IP);
