@@ -55,7 +55,9 @@ static int codec_mpeg12_start(struct amvdec_session *sess) {
 	sess->priv = mpeg12;
 
 	/* Allocate some memory for the MPEG1/2 decoder's state */
-	mpeg12->workspace_vaddr = dma_alloc_coherent(core->dev, SIZE_WORKSPACE, &mpeg12->workspace_paddr, GFP_KERNEL);
+	mpeg12->workspace_vaddr = dma_alloc_coherent(core->dev, SIZE_WORKSPACE,
+						     &mpeg12->workspace_paddr,
+						     GFP_KERNEL);
 	if (!mpeg12->workspace_vaddr) {
 		dev_err(core->dev, "Failed to request MPEG 1/2 Workspace\n");
 		ret = -ENOMEM;
@@ -65,7 +67,8 @@ static int codec_mpeg12_start(struct amvdec_session *sess) {
 	amvdec_write_dos(core, POWER_CTL_VLD, BIT(4));
 
 	amcodec_helper_set_canvases(sess, core->dos_base + AV_SCRATCH_0);
-	amvdec_write_dos(core, MREG_CO_MV_START, mpeg12->workspace_paddr + SIZE_CCBUF);
+	amvdec_write_dos(core, MREG_CO_MV_START,
+			 mpeg12->workspace_paddr + SIZE_CCBUF);
 
 	amvdec_write_dos(core, MPEG1_2_REG, 0);
 	amvdec_write_dos(core, PSCALE_CTRL, 0);
@@ -90,10 +93,10 @@ static int codec_mpeg12_stop(struct amvdec_session *sess)
 	struct codec_mpeg12 *mpeg12 = sess->priv;
 	struct amvdec_core *core = sess->core;
 
-	if (mpeg12->workspace_vaddr) {
-		dma_free_coherent(core->dev, SIZE_WORKSPACE, mpeg12->workspace_vaddr, mpeg12->workspace_paddr);
-		mpeg12->workspace_vaddr = 0;
-	}
+	if (mpeg12->workspace_vaddr)
+		dma_free_coherent(core->dev, SIZE_WORKSPACE,
+				  mpeg12->workspace_vaddr,
+				  mpeg12->workspace_paddr);
 
 	return 0;
 }

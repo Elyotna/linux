@@ -121,7 +121,7 @@
 #define PARSER_CMD_SKIP_CFG_0 0x0000090b
 #define PARSER_CMD_SKIP_CFG_1 0x1b14140f
 #define PARSER_CMD_SKIP_CFG_2 0x001b1910
-static const uint16_t parser_cmd[] = {
+static const u16 parser_cmd[] = {
 	0x0401,	0x8401,	0x0800,	0x0402,
 	0x9002,	0x1423,	0x8CC3,	0x1423,
 	0x8804,	0x9825,	0x0800,	0x04FE,
@@ -137,63 +137,63 @@ static const uint16_t parser_cmd[] = {
 /* Data received from the HW in this form, do not rearrange */
 union rpm_param {
 	struct {
-		uint16_t data[RPM_SIZE];
+		u16 data[RPM_SIZE];
 	} l;
 	struct {
-		uint16_t CUR_RPS[MAX_REF_ACTIVE];
-		uint16_t num_ref_idx_l0_active;
-		uint16_t num_ref_idx_l1_active;
-		uint16_t slice_type;
-		uint16_t slice_temporal_mvp_enable_flag;
-		uint16_t dependent_slice_segment_flag;
-		uint16_t slice_segment_address;
-		uint16_t num_title_rows_minus1;
-		uint16_t pic_width_in_luma_samples;
-		uint16_t pic_height_in_luma_samples;
-		uint16_t log2_min_coding_block_size_minus3;
-		uint16_t log2_diff_max_min_coding_block_size;
-		uint16_t log2_max_pic_order_cnt_lsb_minus4;
-		uint16_t POClsb;
-		uint16_t collocated_from_l0_flag;
-		uint16_t collocated_ref_idx;
-		uint16_t log2_parallel_merge_level;
-		uint16_t five_minus_max_num_merge_cand;
-		uint16_t sps_num_reorder_pics_0;
-		uint16_t modification_flag;
-		uint16_t tiles_flags;
-		uint16_t num_tile_columns_minus1;
-		uint16_t num_tile_rows_minus1;
-		uint16_t tile_width[8];
-		uint16_t tile_height[8];
-		uint16_t misc_flag0;
-		uint16_t pps_beta_offset_div2;
-		uint16_t pps_tc_offset_div2;
-		uint16_t slice_beta_offset_div2;
-		uint16_t slice_tc_offset_div2;
-		uint16_t pps_cb_qp_offset;
-		uint16_t pps_cr_qp_offset;
-		uint16_t first_slice_segment_in_pic_flag;
-		uint16_t m_temporalId;
-		uint16_t m_nalUnitType;
-		uint16_t vui_num_units_in_tick_hi;
-		uint16_t vui_num_units_in_tick_lo;
-		uint16_t vui_time_scale_hi;
-		uint16_t vui_time_scale_lo;
-		uint16_t bit_depth;
-		uint16_t profile_etc;
-		uint16_t sei_frame_field_info;
-		uint16_t video_signal_type;
-		uint16_t modification_list[0x20];
-		uint16_t conformance_window_flag;
-		uint16_t conf_win_left_offset;
-		uint16_t conf_win_right_offset;
-		uint16_t conf_win_top_offset;
-		uint16_t conf_win_bottom_offset;
-		uint16_t chroma_format_idc;
-		uint16_t color_description;
-		uint16_t aspect_ratio_idc;
-		uint16_t sar_width;
-		uint16_t sar_height;
+		u16 CUR_RPS[MAX_REF_ACTIVE];
+		u16 num_ref_idx_l0_active;
+		u16 num_ref_idx_l1_active;
+		u16 slice_type;
+		u16 slice_temporal_mvp_enable_flag;
+		u16 dependent_slice_segment_flag;
+		u16 slice_segment_address;
+		u16 num_title_rows_minus1;
+		u16 pic_width_in_luma_samples;
+		u16 pic_height_in_luma_samples;
+		u16 log2_min_coding_block_size_minus3;
+		u16 log2_diff_max_min_coding_block_size;
+		u16 log2_max_pic_order_cnt_lsb_minus4;
+		u16 POClsb;
+		u16 collocated_from_l0_flag;
+		u16 collocated_ref_idx;
+		u16 log2_parallel_merge_level;
+		u16 five_minus_max_num_merge_cand;
+		u16 sps_num_reorder_pics_0;
+		u16 modification_flag;
+		u16 tiles_flags;
+		u16 num_tile_columns_minus1;
+		u16 num_tile_rows_minus1;
+		u16 tile_width[8];
+		u16 tile_height[8];
+		u16 misc_flag0;
+		u16 pps_beta_offset_div2;
+		u16 pps_tc_offset_div2;
+		u16 slice_beta_offset_div2;
+		u16 slice_tc_offset_div2;
+		u16 pps_cb_qp_offset;
+		u16 pps_cr_qp_offset;
+		u16 first_slice_segment_in_pic_flag;
+		u16 m_temporalId;
+		u16 m_nalUnitType;
+		u16 vui_num_units_in_tick_hi;
+		u16 vui_num_units_in_tick_lo;
+		u16 vui_time_scale_hi;
+		u16 vui_time_scale_lo;
+		u16 bit_depth;
+		u16 profile_etc;
+		u16 sei_frame_field_info;
+		u16 video_signal_type;
+		u16 modification_list[0x20];
+		u16 conformance_window_flag;
+		u16 conf_win_left_offset;
+		u16 conf_win_right_offset;
+		u16 conf_win_top_offset;
+		u16 conf_win_bottom_offset;
+		u16 chroma_format_idc;
+		u16 color_description;
+		u16 aspect_ratio_idc;
+		u16 sar_width;
+		u16 sar_height;
 	} p;
 };
 
@@ -326,8 +326,8 @@ static void codec_hevc_update_frame_refs(struct amvdec_session *sess, struct hev
 	int num_ref_idx_l1_active =
 		(params->p.num_ref_idx_l1_active > MAX_REF_ACTIVE) ?
 		MAX_REF_ACTIVE : params->p.num_ref_idx_l1_active;
-	int ref_picset0[16] = { 0 };
-	int ref_picset1[16] = { 0 };
+	int ref_picset0[MAX_REF_ACTIVE] = { 0 };
+	int ref_picset1[MAX_REF_ACTIVE] = { 0 };
 
 	for (i = 0; i < 16; i++) {
 		frame->ref_poc_list[0][frame->cur_slice_idx][i] = 0;
@@ -597,43 +597,33 @@ static int codec_hevc_setup_workspace(struct amvdec_session *sess)
 {
 	struct amvdec_core *core = sess->core;
 	struct codec_hevc *hevc = sess->priv;
+	dma_addr_t wkaddr;
 
 	/* Allocate some memory for the HEVC decoder's state */
-	hevc->workspace_vaddr = dma_alloc_coherent(core->dev, SIZE_WORKSPACE, &hevc->workspace_paddr, GFP_KERNEL);
+	hevc->workspace_vaddr = dma_alloc_coherent(core->dev, SIZE_WORKSPACE, &wkaddr, GFP_KERNEL);
 	if (!hevc->workspace_vaddr) {
 		dev_err(core->dev, "Failed to allocate HEVC Workspace\n");
 		return -ENOMEM;
 	}
 
-	writel_relaxed(hevc->workspace_paddr + IPP_OFFSET,
-		core->dos_base + HEVCD_IPP_LINEBUFF_BASE);
-	writel_relaxed(hevc->workspace_paddr + RPM_OFFSET,
-		core->dos_base + HEVC_RPM_BUFFER);
-	writel_relaxed(hevc->workspace_paddr + SH_TM_RPS_OFFSET,
-		core->dos_base + HEVC_SHORT_TERM_RPS);
-	writel_relaxed(hevc->workspace_paddr + VPS_OFFSET,
-		core->dos_base + HEVC_VPS_BUFFER);
-	writel_relaxed(hevc->workspace_paddr + SPS_OFFSET,
-		core->dos_base + HEVC_SPS_BUFFER);
-	writel_relaxed(hevc->workspace_paddr + PPS_OFFSET,
-		core->dos_base + HEVC_PPS_BUFFER);
-	writel_relaxed(hevc->workspace_paddr + SAO_UP_OFFSET,
-		core->dos_base + HEVC_SAO_UP);
+	hevc->workspace_paddr = wkaddr;
 
-	/* MMU */
-	//amvdec_write_dos(core, H265_MMU_MAP_BUFFER, hevc->frame_mmu_paddr);
+	amvdec_write_dos(core, HEVCD_IPP_LINEBUFF_BASE, wkaddr + IPP_OFFSET);
+	amvdec_write_dos(core, HEVC_RPM_BUFFER, wkaddr + RPM_OFFSET);
+	amvdec_write_dos(core, HEVC_SHORT_TERM_RPS, wkaddr + SH_TM_RPS_OFFSET);
+	amvdec_write_dos(core, HEVC_VPS_BUFFER, wkaddr + VPS_OFFSET);
+	amvdec_write_dos(core, HEVC_SPS_BUFFER, wkaddr + SPS_OFFSET);
+	amvdec_write_dos(core, HEVC_PPS_BUFFER, wkaddr + PPS_OFFSET);
+	amvdec_write_dos(core, HEVC_SAO_UP, wkaddr + SAO_UP_OFFSET);
+
 	/* No MMU */
-	writel_relaxed(hevc->workspace_paddr + SWAP_BUF_OFFSET,
-		core->dos_base + HEVC_STREAM_SWAP_BUFFER);
-
-	writel_relaxed(hevc->workspace_paddr + SWAP_BUF2_OFFSET,
-		core->dos_base + HEVC_STREAM_SWAP_BUFFER2);
-	writel_relaxed(hevc->workspace_paddr + SCALELUT_OFFSET,
-		core->dos_base + HEVC_SCALELUT);
-	writel_relaxed(hevc->workspace_paddr + DBLK_PARA_OFFSET,
-		core->dos_base + HEVC_DBLK_CFG4);
-	writel_relaxed(hevc->workspace_paddr + DBLK_DATA_OFFSET,
-		core->dos_base + HEVC_DBLK_CFG5);
+	amvdec_write_dos(core, HEVC_STREAM_SWAP_BUFFER,
+			 wkaddr + SWAP_BUF_OFFSET);
+	amvdec_write_dos(core, HEVC_STREAM_SWAP_BUFFER2,
+			 wkaddr + SWAP_BUF2_OFFSET);
+	amvdec_write_dos(core, HEVC_SCALELUT, wkaddr + SCALELUT_OFFSET);
+	amvdec_write_dos(core, HEVC_DBLK_CFG4, wkaddr + DBLK_PARA_OFFSET);
+	amvdec_write_dos(core, HEVC_DBLK_CFG5, wkaddr + DBLK_DATA_OFFSET);
 
 	return 0;
 }

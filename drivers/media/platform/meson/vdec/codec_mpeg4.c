@@ -12,6 +12,7 @@
 #include "dos_regs.h"
 
 #define SIZE_WORKSPACE		SZ_1M
+/* Offset added by firmware, to substract from workspace paddr */
 #define DCAC_BUFF_START_IP	0x02b00000
 
 /* map FW registers to known MPEG4 functions */
@@ -94,7 +95,9 @@ static int codec_mpeg4_start(struct amvdec_session *sess) {
 	sess->priv = mpeg4;
 
 	/* Allocate some memory for the MPEG4 decoder's state */
-	mpeg4->workspace_vaddr = dma_alloc_coherent(core->dev, SIZE_WORKSPACE, &mpeg4->workspace_paddr, GFP_KERNEL);
+	mpeg4->workspace_vaddr = dma_alloc_coherent(core->dev, SIZE_WORKSPACE,
+						    &mpeg4->workspace_paddr,
+						    GFP_KERNEL);
 	if (!mpeg4->workspace_vaddr) {
 		dev_err(core->dev, "Failed to request MPEG4 Workspace\n");
 		ret = -ENOMEM;
@@ -103,7 +106,8 @@ static int codec_mpeg4_start(struct amvdec_session *sess) {
 
 	codec_mpeg4_set_canvases(sess);
 
-	amvdec_write_dos(core, MEM_OFFSET_REG, mpeg4->workspace_paddr - DCAC_BUFF_START_IP);
+	amvdec_write_dos(core, MEM_OFFSET_REG,
+			 mpeg4->workspace_paddr - DCAC_BUFF_START_IP);
 	amvdec_write_dos(core, PSCALE_CTRL, 0);
 	amvdec_write_dos(core, MP4_NOT_CODED_CNT, 0);
 	amvdec_write_dos(core, MREG_BUFFERIN, 0);
@@ -124,7 +128,9 @@ static int codec_mpeg4_stop(struct amvdec_session *sess)
 	struct amvdec_core *core = sess->core;
 
 	if (mpeg4->workspace_vaddr) {
-		dma_free_coherent(core->dev, SIZE_WORKSPACE, mpeg4->workspace_vaddr, mpeg4->workspace_paddr);
+		dma_free_coherent(core->dev, SIZE_WORKSPACE,
+				  mpeg4->workspace_vaddr,
+				  mpeg4->workspace_paddr);
 		mpeg4->workspace_vaddr = 0;
 	}
 
