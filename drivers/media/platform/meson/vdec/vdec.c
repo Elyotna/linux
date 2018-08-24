@@ -23,7 +23,7 @@
 #include "codec_helpers.h"
 
 /* 16 MiB for parsed bitstream swap exchange */
-#define SIZE_VIFIFO (16 * SZ_1M)
+#define SIZE_VIFIFO SZ_16M
 
 void amvdec_abort(struct amvdec_session *sess)
 {
@@ -35,7 +35,7 @@ EXPORT_SYMBOL_GPL(amvdec_abort);
 
 static u32 get_output_size(u32 width, u32 height)
 {
-	return ALIGN(width * height, 64 * SZ_1K);
+	return ALIGN(width * height, SZ_64K);
 }
 
 u32 amvdec_get_output_size(struct amvdec_session *sess)
