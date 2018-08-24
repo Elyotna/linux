@@ -815,9 +815,10 @@ free_hevc:
 static void codec_hevc_flush_output(struct amvdec_session *sess)
 {
 	struct codec_hevc *hevc = sess->priv;
-	struct hevc_frame *tmp, *n;
+	struct hevc_frame *tmp;
 
-	list_for_each_entry_safe(tmp, n, &hevc->ref_frames_list, list) {
+	while (!list_empty(&hevc->ref_frames_list)) {
+		tmp = codec_hevc_get_lowest_poc_frame(hevc);
 		amvdec_dst_buf_done(sess, tmp->vbuf, V4L2_FIELD_NONE);
 		list_del(&tmp->list);
 		kfree(tmp);
