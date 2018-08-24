@@ -146,14 +146,19 @@ int amcodec_helper_set_canvases(struct amvdec_session *sess,
 	u32 reg_cur = reg_base[0];
 	u32 reg_num_cur = 0;
 	u32 reg_base_cur = 0;
+	int ret;
 
 	v4l2_m2m_for_each_dst_buf(sess->m2m_ctx, buf) {
 		switch (pixfmt) {
 		case V4L2_PIX_FMT_NV12M:
-			return codec_helper_set_canvas_nv12m(sess, &buf->vb.vb2_buf, width, height, reg_cur);
+			ret = codec_helper_set_canvas_nv12m(sess, &buf->vb.vb2_buf, width, height, reg_cur);
+			if (ret)
+				return ret;
 			break;
 		case V4L2_PIX_FMT_YUV420M:
-			return codec_helper_set_canvas_yuv420m(sess, &buf->vb.vb2_buf, width, height, reg_cur);
+			ret = codec_helper_set_canvas_yuv420m(sess, &buf->vb.vb2_buf, width, height, reg_cur);
+			if (ret)
+				return ret;
 			break;
 		default:
 			dev_err(sess->core->dev, "Unsupported pixfmt %08X\n",
