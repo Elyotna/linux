@@ -563,10 +563,10 @@ static int vdec_enum_framesizes(struct file *file, void *fh,
 
 	/* TODO: Store these constants in vdec_format */
 	fsize->stepwise.min_width = 256;
-	fsize->stepwise.max_width = 3840;
+	fsize->stepwise.max_width = fmt->max_width;
 	fsize->stepwise.step_width = 1;
 	fsize->stepwise.min_height = 144;
-	fsize->stepwise.max_height = 2160;
+	fsize->stepwise.max_height = fmt->max_height;
 	fsize->stepwise.step_height = 1;
 
 	return 0;
