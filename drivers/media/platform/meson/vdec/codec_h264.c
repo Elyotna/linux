@@ -57,6 +57,8 @@ struct codec_h264 {
 	/* Buffer for parsed SEI data */
 	void      *sei_vaddr;
 	dma_addr_t sei_paddr;
+
+	int received_0;
 };
 
 static int codec_h264_can_recycle(struct amvdec_core *core)
@@ -242,6 +244,7 @@ static void codec_h264_set_param(struct amvdec_session *sess) {
 static void codec_h264_frames_ready(struct amvdec_session *sess, u32 status)
 {
 	struct amvdec_core *core = sess->core;
+	struct codec_h264 *h264 = sess->priv;
 	int error_count;
 	int num_frames;
 	int i;
@@ -275,12 +278,18 @@ static void codec_h264_frames_ready(struct amvdec_session *sess, u32 status)
 			field = V4L2_FIELD_INTERLACED_BT;
 
 		amvdec_dst_buf_done_idx(sess, buffer_index, field);
+
+		if (field != V4L2_FIELD_NONE && !h264->received_0)
+			amvdec_rm_first_ts(sess);
+
+		h264->received_0 = 0;
 	}
 }
 
 static irqreturn_t codec_h264_threaded_isr(struct amvdec_session *sess)
 {
 	struct amvdec_core *core = sess->core;
+	struct codec_h264 *h264 = sess->priv;
 	u32 status;
 	u32 size;
 	u8 cmd;
@@ -306,8 +315,10 @@ static irqreturn_t codec_h264_threaded_isr(struct amvdec_session *sess)
 		size = (amvdec_read_dos(core, AV_SCRATCH_1) + 1) * 16;
 		dev_err(core->dev, "Unsupported video height: %u\n", size);
 		goto abort;
-	case 0: /* Unused but not worth printing for */
-	case 9:
+	case 0:
+		h264->received_0 = 1;
+		break;
+	case 9: /* Unused but not worth printing for */
 		break;
 	default:
 		dev_info(core->dev, "Unexpected H264 ISR: %08X\n", cmd);

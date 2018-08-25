@@ -790,7 +790,7 @@ static int vdec_close(struct file *file)
 	return 0;
 }
 
-static void vdec_rm_first_ts(struct amvdec_session *sess)
+void amvdec_rm_first_ts(struct amvdec_session *sess)
 {
 	unsigned long flags;
 	struct amvdec_buffer *tmp;
@@ -805,6 +805,7 @@ static void vdec_rm_first_ts(struct amvdec_session *sess)
 	tmp = list_first_entry(&sess->bufs, struct amvdec_buffer, list);
 	list_del(&tmp->list);
 	kfree(tmp);
+	atomic_dec(&sess->esparser_queued_bufs);
 
 unlock:
 	spin_unlock_irqrestore(&sess->bufs_spinlock, flags);
@@ -883,8 +884,7 @@ amvdec_dst_buf_done_idx(struct amvdec_session *sess, u32 buf_idx, u32 field)
 	if (!vbuf) {
 		dev_err(dev, "Buffer %u done but it doesn't exist in m2m_ctx\n",
 			buf_idx);
-		atomic_dec(&sess->esparser_queued_bufs);
-		vdec_rm_first_ts(sess);
+		amvdec_rm_first_ts(sess);
 		return;
 	}
 

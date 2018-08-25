@@ -167,6 +167,7 @@ void amvdec_dst_buf_done_idx(struct amvdec_session *sess, u32 buf_idx, u32 field
 void amvdec_dst_buf_done(struct amvdec_session *sess, struct vb2_v4l2_buffer *vbuf, u32 field);
 void amvdec_add_ts_reorder(struct amvdec_session *sess, u64 ts);
 void amvdec_remove_ts(struct amvdec_session *sess, u64 ts);
+void amvdec_rm_first_ts(struct amvdec_session *sess);
 void amvdec_abort(struct amvdec_session *sess);
 
 u32 amvdec_read_dos(struct amvdec_core *core, u32 reg);
