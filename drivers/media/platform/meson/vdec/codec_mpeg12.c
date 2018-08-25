@@ -6,7 +6,6 @@
 #include <media/v4l2-mem2mem.h>
 #include <media/videobuf2-dma-contig.h>
 
-#include "codec_mpeg12.h"
 #include "codec_helpers.h"
 #include "dos_regs.h"
 

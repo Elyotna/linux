@@ -210,7 +210,7 @@ enum slice_type {
 	I_SLICE = 2,
 };
 
-/* Refers to a frame being decoded */
+/* A frame being decoded */
 struct hevc_frame {
 	struct list_head list;
 	struct vb2_v4l2_buffer *vbuf;
@@ -942,16 +942,21 @@ static void codec_hevc_set_sao(struct amvdec_session *sess, struct hevc_frame *f
 	u32 slice_deblocking_filter_disabled_flag;
 	u32 val, val_2;
 
-	val = (amvdec_read_dos(core, HEVC_SAO_CTRL0) & ~0xf) | ilog2(hevc->lcu_size);
+	val = (amvdec_read_dos(core, HEVC_SAO_CTRL0) & ~0xf) |
+	      ilog2(hevc->lcu_size);
 	amvdec_write_dos(core, HEVC_SAO_CTRL0, val);
 
-	amvdec_write_dos(core, HEVC_SAO_PIC_SIZE, hevc->width | (hevc->height << 16));
-	amvdec_write_dos(core, HEVC_SAO_PIC_SIZE_LCU, (hevc->lcu_x_num - 1) | (hevc->lcu_y_num - 1) << 16);
+	amvdec_write_dos(core, HEVC_SAO_PIC_SIZE,
+			 hevc->width | (hevc->height << 16));
+	amvdec_write_dos(core, HEVC_SAO_PIC_SIZE_LCU,
+			 (hevc->lcu_x_num - 1) | (hevc->lcu_y_num - 1) << 16);
 
 	if (codec_hevc_use_downsample(sess))
-		buf_y_paddr = hevc->fbc_buffer_paddr[frame->vbuf->vb2_buf.index];
+		buf_y_paddr =
+			hevc->fbc_buffer_paddr[frame->vbuf->vb2_buf.index];
 	else
-		buf_y_paddr = vb2_dma_contig_plane_dma_addr(&frame->vbuf->vb2_buf, 0);
+		buf_y_paddr =
+		       vb2_dma_contig_plane_dma_addr(&frame->vbuf->vb2_buf, 0);
 
 	if (codec_hevc_use_fbc(sess)) {
 		val = amvdec_read_dos(core, HEVC_SAO_CTRL5) & ~0xff0200;
@@ -960,8 +965,10 @@ static void codec_hevc_set_sao(struct amvdec_session *sess, struct hevc_frame *f
 	}
 
 	if (sess->pixfmt_cap == V4L2_PIX_FMT_NV12M) {
-		buf_y_paddr = vb2_dma_contig_plane_dma_addr(&frame->vbuf->vb2_buf, 0);
-		buf_u_v_paddr = vb2_dma_contig_plane_dma_addr(&frame->vbuf->vb2_buf, 1);
+		buf_y_paddr =
+		       vb2_dma_contig_plane_dma_addr(&frame->vbuf->vb2_buf, 0);
+		buf_u_v_paddr =
+		       vb2_dma_contig_plane_dma_addr(&frame->vbuf->vb2_buf, 1);
 		amvdec_write_dos(core, HEVC_SAO_Y_START_ADDR, buf_y_paddr);
 		amvdec_write_dos(core, HEVC_SAO_C_START_ADDR, buf_u_v_paddr);
 		amvdec_write_dos(core, HEVC_SAO_Y_WPTR, buf_y_paddr);
@@ -969,7 +976,8 @@ static void codec_hevc_set_sao(struct amvdec_session *sess, struct hevc_frame *f
 	}
 
 	amvdec_write_dos(core, HEVC_SAO_Y_LENGTH, amvdec_get_output_size(sess));
-	amvdec_write_dos(core, HEVC_SAO_C_LENGTH, (amvdec_get_output_size(sess) / 2));
+	amvdec_write_dos(core, HEVC_SAO_C_LENGTH,
+			 (amvdec_get_output_size(sess) / 2));
 
 	if (frame->cur_slice_idx == 0) {
 		amvdec_write_dos(core, HEVC_DBLK_CFG2, hevc->width | (hevc->height << 16));
@@ -1104,8 +1112,7 @@ static void codec_hevc_set_mpred(struct amvdec_session *sess, struct hevc_frame 
 		mv_rd_en = 0;
 
 	val = slice_type |
-	      BIT(2) | // new pic
-	      BIT(3) | // new tile
+	      BIT(3) | /* new tile */
 	      is_next_slice_segment << 4 |
 	      tmvp_flag << 5 |
 	      hevc->ldc_flag << 6 |
@@ -1116,6 +1123,10 @@ static void codec_hevc_set_mpred(struct amvdec_session *sess, struct hevc_frame 
 	      BIT(13) |
 	      lcu_size_log2 << 16 |
 	      3 << 20 | plevel << 24;
+
+	if (slice_segment_address == 0)
+		val |= BIT(2); /* new frame */
+
 	amvdec_write_dos(core, HEVC_MPRED_CTRL0, val);
 
 	val = max_num_merge_cand | 2 << 4 | 3 << 8 | 5 << 12 | 36 << 16;
@@ -1143,7 +1154,8 @@ static void codec_hevc_set_mpred(struct amvdec_session *sess, struct hevc_frame 
 	}
 
 	if (slice_segment_address == 0) {
-		amvdec_write_dos(core, HEVC_MPRED_ABV_START_ADDR, hevc->workspace_paddr + MPRED_ABV_OFFSET);
+		amvdec_write_dos(core, HEVC_MPRED_ABV_START_ADDR,
+				 hevc->workspace_paddr + MPRED_ABV_OFFSET);
 		amvdec_write_dos(core, HEVC_MPRED_MV_WPTR, mpred_mv_wr_ptr);
 		amvdec_write_dos(core, HEVC_MPRED_MV_RPTR, col_mv_rd_start_addr);
 	} else {
