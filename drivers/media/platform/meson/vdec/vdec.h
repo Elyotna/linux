@@ -158,13 +158,6 @@ struct amvdec_session {
 	/* Tracks last time we got a vdec IRQ */
 	u64 last_irq_jiffies;
 
-	/* Minimum remaining queued src buffers to trigger EOS
-	 * after userspace sent CMD_STOP.
-	 * Can be 1 in case of an interlaced bitstream that ends with half
-	 * a frame.
-	 */
-	u32 min_buffers_eos;
-
 	/* Codec private data */
 	void *priv;
 };

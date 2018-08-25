@@ -6,7 +6,6 @@
 #include <media/v4l2-mem2mem.h>
 #include <media/videobuf2-dma-contig.h>
 
-#include "codec_h264.h"
 #include "codec_helpers.h"
 #include "dos_regs.h"
 
@@ -58,8 +57,6 @@ struct codec_h264 {
 	/* Buffer for parsed SEI data */
 	void      *sei_vaddr;
 	dma_addr_t sei_paddr;
-
-	u32 seq_info;
 };
 
 static int codec_h264_can_recycle(struct amvdec_core *core)
@@ -194,7 +191,6 @@ static void codec_h264_set_param(struct amvdec_session *sess) {
 	amvdec_write_dos(core, AV_SCRATCH_9, 0);
 
 	parsed_info = amvdec_read_dos(core, AV_SCRATCH_1);
-	h264->seq_info = amvdec_read_dos(core, AV_SCRATCH_2);
 
 	/* Total number of 16x16 macroblocks */
 	mb_total = (parsed_info >> 8) & 0xffff;
@@ -246,7 +242,6 @@ static void codec_h264_set_param(struct amvdec_session *sess) {
 static void codec_h264_frames_ready(struct amvdec_session *sess, u32 status)
 {
 	struct amvdec_core *core = sess->core;
-	struct codec_h264 *h264 = sess->priv;
 	int error_count;
 	int num_frames;
 	int i;
@@ -260,7 +255,7 @@ static void codec_h264_frames_ready(struct amvdec_session *sess, u32 status)
 	}
 
 	for (i = 0; i < num_frames; i++) {
-		u32 frame_status = amvdec_read_dos(core, AV_SCRATCH_1 + i*4);
+		u32 frame_status = amvdec_read_dos(core, AV_SCRATCH_1 + i * 4);
 		u32 buffer_index = frame_status & 0x1f;
 		u32 error = frame_status & 0x200;
 		u32 pic_struct = (frame_status >> 5) & 0x7;
@@ -274,12 +269,10 @@ static void codec_h264_frames_ready(struct amvdec_session *sess, u32 status)
 			dev_info(core->dev, "Buffer %d decode error\n",
 				 buffer_index);
 
-		if (h264->seq_info & 0x4) {
-			if (pic_struct == PIC_TOP_BOT)
-				field = V4L2_FIELD_INTERLACED_TB;
-			else if (pic_struct == PIC_BOT_TOP)
-				field = V4L2_FIELD_INTERLACED_BT;
-		}
+		if (pic_struct == PIC_TOP_BOT)
+			field = V4L2_FIELD_INTERLACED_TB;
+		else if (pic_struct == PIC_BOT_TOP)
+			field = V4L2_FIELD_INTERLACED_BT;
 
 		amvdec_dst_buf_done_idx(sess, buffer_index, field);
 	}

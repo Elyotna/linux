@@ -849,17 +849,8 @@ void amvdec_dst_buf_done(struct amvdec_session *sess, struct vb2_v4l2_buffer *vb
 	spin_unlock_irqrestore(&sess->bufs_spinlock, flags);
 
 	atomic_dec(&sess->esparser_queued_bufs);
-	/* Interlaced content has 2 src buffers for
-	 * 1 dst buffer. Drop an additional entry.
-	 */
-	if (field != V4L2_FIELD_NONE) {
-		atomic_dec(&sess->esparser_queued_bufs);
-		vdec_rm_first_ts(sess);
-		sess->min_buffers_eos = 1;
-	}
 
-	if (sess->should_stop &&
-	    atomic_read(&sess->esparser_queued_bufs) <= sess->min_buffers_eos) {
+	if (sess->should_stop && list_empty(&sess->bufs)) {
 		const struct v4l2_event ev = { .type = V4L2_EVENT_EOS };
 		dev_dbg(dev, "Signaling EOS\n");
 		v4l2_event_queue_fh(&sess->fh, &ev);
