@@ -152,8 +152,8 @@ struct amvdec_session {
 	struct task_struct *recycle_thread;
 	
 	/* src buffers' timestamps */
-	struct list_head bufs;
-	spinlock_t bufs_spinlock;
+	struct list_head timestamps;
+	spinlock_t ts_spinlock;
 
 	/* Tracks last time we got a vdec IRQ */
 	u64 last_irq_jiffies;

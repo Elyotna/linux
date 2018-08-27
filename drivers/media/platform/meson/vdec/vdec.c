@@ -286,7 +286,7 @@ static void vdec_stop_streaming(struct vb2_queue *q)
 		vdec_free_canvas(sess);
 		dma_free_coherent(sess->core->dev, sess->vififo_size,
 				  sess->vififo_vaddr, sess->vififo_paddr);
-		INIT_LIST_HEAD(&sess->bufs);
+		INIT_LIST_HEAD(&sess->timestamps);
 		INIT_LIST_HEAD(&sess->bufs_recycle);
 		if (sess->priv) {
 			kfree(sess->priv);
@@ -736,10 +736,10 @@ static int vdec_open(struct file *file)
 	sess->fmt_out = &formats[0];
 	sess->width = 1280;
 	sess->height = 720;
-	INIT_LIST_HEAD(&sess->bufs);
+	INIT_LIST_HEAD(&sess->timestamps);
 	INIT_LIST_HEAD(&sess->bufs_recycle);
 	INIT_WORK(&sess->esparser_queue_work, esparser_queue_all_src);
-	spin_lock_init(&sess->bufs_spinlock);
+	spin_lock_init(&sess->ts_spinlock);
 	mutex_init(&sess->lock);
 	mutex_init(&sess->codec_lock);
 	mutex_init(&sess->bufs_recycle_lock);
@@ -796,19 +796,19 @@ void amvdec_rm_first_ts(struct amvdec_session *sess)
 	struct amvdec_buffer *tmp;
 	struct device *dev = sess->core->dev_dec;
 
-	spin_lock_irqsave(&sess->bufs_spinlock, flags);
-	if (list_empty(&sess->bufs)) {
+	spin_lock_irqsave(&sess->ts_spinlock, flags);
+	if (list_empty(&sess->timestamps)) {
 		dev_err(dev, "Can't rm first timestamp: list empty\n");
 		goto unlock;
 	}
 
-	tmp = list_first_entry(&sess->bufs, struct amvdec_buffer, list);
+	tmp = list_first_entry(&sess->timestamps, struct amvdec_buffer, list);
 	list_del(&tmp->list);
 	kfree(tmp);
 	atomic_dec(&sess->esparser_queued_bufs);
 
 unlock:
-	spin_unlock_irqrestore(&sess->bufs_spinlock, flags);
+	spin_unlock_irqrestore(&sess->ts_spinlock, flags);
 }
 
 void amvdec_dst_buf_done(struct amvdec_session *sess,
@@ -819,18 +819,18 @@ void amvdec_dst_buf_done(struct amvdec_session *sess,
 	u32 output_size = amvdec_get_output_size(sess);
 	unsigned long flags;
 
-	spin_lock_irqsave(&sess->bufs_spinlock, flags);
-	if (list_empty(&sess->bufs)) {
+	spin_lock_irqsave(&sess->ts_spinlock, flags);
+	if (list_empty(&sess->timestamps)) {
 		dev_err(dev, "Buffer %u done but list is empty\n",
 			vbuf->vb2_buf.index);
 
 		v4l2_m2m_buf_done(vbuf, VB2_BUF_STATE_ERROR);
 		amvdec_abort(sess);
-		spin_unlock_irqrestore(&sess->bufs_spinlock, flags);
+		spin_unlock_irqrestore(&sess->ts_spinlock, flags);
 		goto end;
 	}
 
-	tmp = list_first_entry(&sess->bufs, struct amvdec_timestamp, list);
+	tmp = list_first_entry(&sess->timestamps, struct amvdec_timestamp, list);
 
 	switch (sess->pixfmt_cap) {
 	case V4L2_PIX_FMT_NV12M:
@@ -852,11 +852,11 @@ void amvdec_dst_buf_done(struct amvdec_session *sess,
 
 	list_del(&tmp->list);
 	kfree(tmp);
-	spin_unlock_irqrestore(&sess->bufs_spinlock, flags);
+	spin_unlock_irqrestore(&sess->ts_spinlock, flags);
 
 	atomic_dec(&sess->esparser_queued_bufs);
 
-	if (sess->should_stop && list_empty(&sess->bufs)) {
+	if (sess->should_stop && list_empty(&sess->timestamps)) {
 		const struct v4l2_event ev = { .type = V4L2_EVENT_EOS };
 		dev_dbg(dev, "Signaling EOS\n");
 		v4l2_event_queue_fh(&sess->fh, &ev);
@@ -903,12 +903,12 @@ void amvdec_add_ts_reorder(struct amvdec_session *sess, u64 ts)
 	new_ts = kmalloc(sizeof(*new_ts), GFP_KERNEL);
 	new_ts->ts = ts;
 
-	spin_lock_irqsave(&sess->bufs_spinlock, flags);
+	spin_lock_irqsave(&sess->ts_spinlock, flags);
 
-	if (list_empty(&sess->bufs))
+	if (list_empty(&sess->timestamps))
 		goto add_core;
 
-	list_for_each_entry(tmp, &sess->bufs, list) {
+	list_for_each_entry(tmp, &sess->timestamps, list) {
 		if (ts < tmp->ts) {
 			list_add_tail(&new_ts->list, &tmp->list);
 			goto unlock;
@@ -916,9 +916,9 @@ void amvdec_add_ts_reorder(struct amvdec_session *sess, u64 ts)
 	}
 
 add_core:
-	list_add_tail(&new_ts->list, &sess->bufs);
+	list_add_tail(&new_ts->list, &sess->timestamps);
 unlock:
-	spin_unlock_irqrestore(&sess->bufs_spinlock, flags);
+	spin_unlock_irqrestore(&sess->ts_spinlock, flags);
 }
 EXPORT_SYMBOL_GPL(amvdec_add_ts_reorder);
 
@@ -927,8 +927,8 @@ void amvdec_remove_ts(struct amvdec_session *sess, u64 ts)
 	struct amvdec_timestamp *tmp;
 	unsigned long flags;
 
-	spin_lock_irqsave(&sess->bufs_spinlock, flags);
-	list_for_each_entry(tmp, &sess->bufs, list) {
+	spin_lock_irqsave(&sess->ts_spinlock, flags);
+	list_for_each_entry(tmp, &sess->timestamps, list) {
 		if (tmp->ts == ts) {
 			list_del(&tmp->list);
 			kfree(tmp);
@@ -939,7 +939,7 @@ void amvdec_remove_ts(struct amvdec_session *sess, u64 ts)
 		"Couldn't remove buffer with timestamp %llu from list\n", ts);
 
 unlock:
-	spin_unlock_irqrestore(&sess->bufs_spinlock, flags);
+	spin_unlock_irqrestore(&sess->ts_spinlock, flags);
 }
 EXPORT_SYMBOL_GPL(amvdec_remove_ts);
 
