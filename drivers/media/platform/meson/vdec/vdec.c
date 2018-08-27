@@ -59,7 +59,6 @@ static int vdec_recycle_thread(void *data)
 
 	while (!kthread_should_stop()) {
 		mutex_lock(&sess->bufs_recycle_lock);
-
 		list_for_each_entry_safe(tmp, n, &sess->bufs_recycle, list) {
 			if (!codec_ops->can_recycle(core))
 				break;
@@ -163,9 +162,10 @@ static int vdec_queue_setup(struct vb2_queue *q,
 		unsigned int sizes[], struct device *alloc_devs[])
 {
 	struct amvdec_session *sess = vb2_get_drv_priv(q);
+	struct amvdec_core *core = sess->core;
 	const struct amvdec_format *fmt_out = sess->fmt_out;
 	u32 pixfmt_cap = sess->pixfmt_cap;
-	
+
 	switch (q->type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
 		sizes[0] = amvdec_get_output_size(sess);
@@ -191,6 +191,16 @@ static int vdec_queue_setup(struct vb2_queue *q,
 	default:
 		return -EINVAL;
 	}
+
+	mutex_lock(&core->lock);
+	if (core->cur_sess && core->cur_sess != sess) {
+		mutex_unlock(&core->lock);
+		return -EBUSY;
+	}
+
+	core->cur_sess = sess;
+	mutex_unlock(&core->lock);
+
 	return 0;
 }
 
@@ -597,7 +607,6 @@ static int vdec_enum_framesizes(struct file *file, void *fh,
 
 	fsize->type = V4L2_FRMSIZE_TYPE_STEPWISE;
 
-	/* TODO: Store these constants in vdec_format */
 	fsize->stepwise.min_width = 256;
 	fsize->stepwise.max_width = fmt->max_width;
 	fsize->stepwise.step_width = 1;
@@ -738,20 +747,11 @@ static int vdec_open(struct file *file)
 	struct amvdec_session *sess;
 	int ret;
 
-	mutex_lock(&core->lock);
-	if (core->cur_sess) {
-		mutex_unlock(&core->lock);
-		return -EBUSY;
-	}
-
 	sess = kzalloc(sizeof(*sess), GFP_KERNEL);
 	if (!sess) {
 		mutex_unlock(&core->lock);
 		return -ENOMEM;
 	}
-
-	core->cur_sess = sess;
-	mutex_unlock(&core->lock);
 
 	sess->core = core;
 	sess->pixfmt_cap = formats[0].pixfmts_cap[0];
@@ -807,7 +807,9 @@ static int vdec_close(struct file *file)
 	mutex_destroy(&sess->lock);
 
 	kfree(sess);
-	core->cur_sess = NULL;
+
+	if (core->cur_sess == sess)
+		core->cur_sess = NULL;
 
 	return 0;
 }
@@ -928,7 +930,7 @@ void amvdec_add_ts_reorder(struct amvdec_session *sess, u64 ts)
 	spin_lock_irqsave(&sess->ts_spinlock, flags);
 
 	if (list_empty(&sess->timestamps))
-		goto add_core;
+		goto add_tail;
 
 	list_for_each_entry(tmp, &sess->timestamps, list) {
 		if (ts < tmp->ts) {
@@ -937,7 +939,7 @@ void amvdec_add_ts_reorder(struct amvdec_session *sess, u64 ts)
 		}
 	}
 
-add_core:
+add_tail:
 	list_add_tail(&new_ts->list, &sess->timestamps);
 unlock:
 	spin_unlock_irqrestore(&sess->ts_spinlock, flags);
