@@ -107,8 +107,21 @@ disable_dos_parser:
 	return ret;
 }
 
+static void vdec_wait_inactive(struct amvdec_session *sess)
+{
+	/* We consider 50ms with no IRQ to be inactive. */
+	while (time_is_after_jiffies64(
+	       sess->last_irq_jiffies + msecs_to_jiffies(50)))
+		msleep(50);
+}
+
 static void vdec_poweroff(struct amvdec_session *sess) {
 	struct amvdec_ops *vdec_ops = sess->fmt_out->vdec_ops;
+	struct amvdec_codec_ops *codec_ops = sess->fmt_out->codec_ops;
+
+	vdec_wait_inactive(sess);
+	if (codec_ops->drain)
+		codec_ops->drain(sess);
 
 	vdec_ops->stop(sess);
 	clk_disable_unprepare(sess->core->dos_clk);
@@ -272,6 +285,24 @@ static void vdec_free_canvas(struct amvdec_session *sess)
 	sess->canvas_num = 0;
 }
 
+static void vdec_reset_timestamps(struct amvdec_session *sess)
+{
+	struct amvdec_timestamp *tmp, *n;
+	list_for_each_entry_safe(tmp, n, &sess->timestamps, list) {
+		list_del(&tmp->list);
+		kfree(tmp);
+	}
+}
+
+static void vdec_reset_bufs_recycle(struct amvdec_session *sess)
+{
+	struct amvdec_buffer *tmp, *n;
+	list_for_each_entry_safe(tmp, n, &sess->bufs_recycle, list) {
+		list_del(&tmp->list);
+		kfree(tmp);
+	}
+}
+
 static void vdec_stop_streaming(struct vb2_queue *q)
 {
 	struct amvdec_session *sess = vb2_get_drv_priv(q);
@@ -282,12 +313,13 @@ static void vdec_stop_streaming(struct vb2_queue *q)
 	if (sess->streamon_out && sess->streamon_cap) {
 		if (vdec_codec_needs_recycle(sess))
 			kthread_stop(sess->recycle_thread);
+
 		vdec_poweroff(sess);
 		vdec_free_canvas(sess);
 		dma_free_coherent(sess->core->dev, sess->vififo_size,
 				  sess->vififo_vaddr, sess->vififo_paddr);
-		INIT_LIST_HEAD(&sess->timestamps);
-		INIT_LIST_HEAD(&sess->bufs_recycle);
+		vdec_reset_timestamps(sess);
+		vdec_reset_bufs_recycle(sess);
 		if (sess->priv) {
 			kfree(sess->priv);
 			sess->priv = NULL;
@@ -603,23 +635,13 @@ vdec_decoder_cmd(struct file *file, void *fh, struct v4l2_decoder_cmd *cmd)
 	if (ret)
 		return ret;
 
-	mutex_lock(&sess->lock);
 	if (!(sess->streamon_out & sess->streamon_cap))
 		goto unlock;
-	mutex_unlock(&sess->lock);
 
 	dev_dbg(sess->core->dev, "Received V4L2_DEC_CMD_STOP\n");
 	sess->should_stop = 1;
 
-	/* We don't want to trigger EOS as long as we are still getting
-	 * IRQs from the current decode session.
-	 * EOS will be sent once there is no more vdec activity to purge the
-	 * last few frames.
-	 * We consider 100ms with no IRQ to be inactive.
-	 */
-	while (time_is_after_jiffies64(
-	       sess->last_irq_jiffies + msecs_to_jiffies(100)))
-		msleep(100);
+	vdec_wait_inactive(sess);
 
 	mutex_lock(&sess->lock);
 	if (codec_ops->drain)
