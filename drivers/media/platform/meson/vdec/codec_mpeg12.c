@@ -9,8 +9,9 @@
 #include "codec_helpers.h"
 #include "dos_regs.h"
 
-#define SIZE_WORKSPACE	(2 * SZ_64K)
-#define SIZE_CCBUF	(5 * SZ_1K)
+#define SIZE_WORKSPACE		SZ_128K
+/* Offset substracted by the firmware from the workspace paddr */
+#define WORKSPACE_OFFSET	(5 * SZ_1K)
 
 /* map FW registers to known MPEG1/2 functions */
 #define MREG_SEQ_INFO		AV_SCRATCH_4
@@ -26,9 +27,12 @@
 #define MREG_WAIT_BUFFER	AV_SCRATCH_E
 #define MREG_FATAL_ERROR	AV_SCRATCH_F
 
+#define PICINFO_PROG		0x00008000
+#define PICINFO_TOP_FIRST	0x00002000
+
 struct codec_mpeg12 {
 	/* Buffer for the MPEG1/2 Workspace */
-	void      *workspace_vaddr;
+	void	  *workspace_vaddr;
 	dma_addr_t workspace_paddr;
 };
 
@@ -69,7 +73,7 @@ static int codec_mpeg12_start(struct amvdec_session *sess) {
 				    (u32[]){ 8, 0 });
 
 	amvdec_write_dos(core, MREG_CO_MV_START,
-			 mpeg12->workspace_paddr + SIZE_CCBUF);
+			 mpeg12->workspace_paddr + WORKSPACE_OFFSET);
 
 	amvdec_write_dos(core, MPEG1_2_REG, 0);
 	amvdec_write_dos(core, PSCALE_CTRL, 0);
@@ -102,11 +106,14 @@ static int codec_mpeg12_stop(struct amvdec_session *sess)
 	return 0;
 }
 
-static irqreturn_t codec_mpeg12_isr(struct amvdec_session *sess)
+static irqreturn_t codec_mpeg12_threaded_isr(struct amvdec_session *sess)
 {
-	u32 reg;
-	u32 buffer_index;
 	struct amvdec_core *core = sess->core;
+	u32 reg;
+	u32 pic_info;
+	u32 is_progressive;
+	u32 buffer_index;
+	u32 field = V4L2_FIELD_NONE;
 
 	amvdec_write_dos(core, ASSIST_MBOX1_CLR_REG, 1);
 
@@ -121,19 +128,34 @@ static irqreturn_t codec_mpeg12_isr(struct amvdec_session *sess)
 	if ((reg >> 16) & 0xfe)
 		goto end;
 
+	pic_info = amvdec_read_dos(core, MREG_PIC_INFO);
+	is_progressive = pic_info & PICINFO_PROG;
+
 	sess->keyframe_found = 1;
+
+	if (!is_progressive)
+		field = (pic_info & PICINFO_TOP_FIRST) ?
+			V4L2_FIELD_INTERLACED_TB :
+			V4L2_FIELD_INTERLACED_BT;
+
 	buffer_index = ((reg & 0xf) - 1) & 7;
-	amvdec_dst_buf_done_idx(sess, buffer_index, V4L2_FIELD_NONE);
+	amvdec_dst_buf_done_idx(sess, buffer_index, field);
 
 end:
 	amvdec_write_dos(core, MREG_BUFFEROUT, 0);
 	return IRQ_HANDLED;
 }
 
+static irqreturn_t codec_mpeg12_isr(struct amvdec_session *sess)
+{
+	return IRQ_WAKE_THREAD;
+}
+
 struct amvdec_codec_ops codec_mpeg12_ops = {
 	.start = codec_mpeg12_start,
 	.stop = codec_mpeg12_stop,
 	.isr = codec_mpeg12_isr,
+	.threaded_isr = codec_mpeg12_threaded_isr,
 	.can_recycle = codec_mpeg12_can_recycle,
 	.recycle = codec_mpeg12_recycle,
 };
