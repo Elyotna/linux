@@ -988,6 +988,18 @@ void amvdec_write_dos(struct amvdec_core *core, u32 reg, u32 val)
 }
 EXPORT_SYMBOL_GPL(amvdec_write_dos);
 
+void amvdec_write_dos_bits(struct amvdec_core *core, u32 reg, u32 val)
+{
+	amvdec_write_dos(core, reg, amvdec_read_dos(core, reg) | val);
+}
+EXPORT_SYMBOL_GPL(amvdec_write_dos_bits);
+
+void amvdec_clear_dos_bits(struct amvdec_core *core, u32 reg, u32 val)
+{
+	amvdec_write_dos(core, reg, amvdec_read_dos(core, reg) & ~val);
+}
+EXPORT_SYMBOL_GPL(amvdec_clear_dos_bits);
+
 u32 amvdec_read_parser(struct amvdec_core *core, u32 reg)
 {
 	return readl_relaxed(core->esparser_base + reg);

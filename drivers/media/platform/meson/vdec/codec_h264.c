@@ -159,7 +159,7 @@ static int codec_h264_load_extended_firmware(struct amvdec_session *sess, const 
 		
 	sess->priv = h264;
 
-	if (len != SIZE_EXT_FW)
+	if (len < SIZE_EXT_FW)
 		return -EINVAL;
 	
 	h264->ext_fw_vaddr = dma_alloc_coherent(core->dev, SIZE_EXT_FW,

@@ -16,7 +16,8 @@
 
 #define MC_SIZE			(4096 * 4)
 
-static int vdec_1_load_firmware(struct amvdec_session *sess, const char* fwname)
+static int
+vdec_1_load_firmware(struct amvdec_session *sess, const char* fwname)
 {
 	const struct firmware *fw;
 	struct amvdec_core *core = sess->core;
@@ -38,9 +39,11 @@ static int vdec_1_load_firmware(struct amvdec_session *sess, const char* fwname)
 		goto release_firmware;
 	}
 
-	mc_addr = dma_alloc_coherent(core->dev, MC_SIZE, &mc_addr_map, GFP_KERNEL);
+	mc_addr = dma_alloc_coherent(core->dev, MC_SIZE,
+				     &mc_addr_map, GFP_KERNEL);
 	if (!mc_addr) {
-		dev_err(dev, "Failed allocating memory for firmware loading\n");
+		dev_err(dev,
+			"Failed allocating memory for firmware loading\n");
 		ret = -ENOMEM;
 		goto release_firmware;
 	 }
@@ -50,13 +53,13 @@ static int vdec_1_load_firmware(struct amvdec_session *sess, const char* fwname)
 	amvdec_write_dos(core, MPSR, 0);
 	amvdec_write_dos(core, CPSR, 0);
 
-	amvdec_write_dos(core, MDEC_PIC_DC_CTRL, amvdec_read_dos(core, MDEC_PIC_DC_CTRL) & ~BIT(31));
+	amvdec_clear_dos_bits(core, MDEC_PIC_DC_CTRL, BIT(31));
 
 	amvdec_write_dos(core, IMEM_DMA_ADR, mc_addr_map);
 	amvdec_write_dos(core, IMEM_DMA_COUNT, MC_SIZE / 4);
 	amvdec_write_dos(core, IMEM_DMA_CTRL, (0x8000 | (7 << 16)));
 
-	while (--i && readl(core->dos_base + IMEM_DMA_CTRL) & 0x8000) { }
+	while (--i && amvdec_read_dos(core, IMEM_DMA_CTRL) & 0x8000) { }
 
 	if (i == 0) {
 		dev_err(dev, "Firmware load fail (DMA hang?)\n");
@@ -65,7 +68,8 @@ static int vdec_1_load_firmware(struct amvdec_session *sess, const char* fwname)
 	}
 
 	if (codec_ops->load_extended_firmware)
-		codec_ops->load_extended_firmware(sess, fw->data + MC_SIZE, fw->size - MC_SIZE);
+		codec_ops->load_extended_firmware(sess, fw->data + MC_SIZE,
+						  fw->size - MC_SIZE);
 
 free_mc:
 	dma_free_coherent(core->dev, MC_SIZE, mc_addr, mc_addr_map);
@@ -83,18 +87,21 @@ int vdec_1_stbuf_power_up(struct amvdec_session *sess) {
 
 	amvdec_write_dos(core, VLD_MEM_VIFIFO_START_PTR, sess->vififo_paddr);
 	amvdec_write_dos(core, VLD_MEM_VIFIFO_CURR_PTR, sess->vififo_paddr);
-	amvdec_write_dos(core, VLD_MEM_VIFIFO_END_PTR, sess->vififo_paddr + sess->vififo_size - 8);
+	amvdec_write_dos(core, VLD_MEM_VIFIFO_END_PTR,
+			 sess->vififo_paddr + sess->vififo_size - 8);
 
-	amvdec_write_dos(core, VLD_MEM_VIFIFO_CONTROL, amvdec_read_dos(core, VLD_MEM_VIFIFO_CONTROL) |  1);
-	amvdec_write_dos(core, VLD_MEM_VIFIFO_CONTROL, amvdec_read_dos(core, VLD_MEM_VIFIFO_CONTROL) & ~1);
+	amvdec_write_dos_bits(core, VLD_MEM_VIFIFO_CONTROL, 1);
+	amvdec_clear_dos_bits(core, VLD_MEM_VIFIFO_CONTROL, 1);
 
 	amvdec_write_dos(core, VLD_MEM_VIFIFO_BUF_CNTL, MEM_BUFCTRL_MANUAL);
 	amvdec_write_dos(core, VLD_MEM_VIFIFO_WP, sess->vififo_paddr);
 
-	amvdec_write_dos(core, VLD_MEM_VIFIFO_BUF_CNTL, amvdec_read_dos(core, VLD_MEM_VIFIFO_BUF_CNTL) |  1);
-	amvdec_write_dos(core, VLD_MEM_VIFIFO_BUF_CNTL, amvdec_read_dos(core, VLD_MEM_VIFIFO_BUF_CNTL) & ~1);
+	amvdec_write_dos_bits(core, VLD_MEM_VIFIFO_BUF_CNTL, 1);
+	amvdec_clear_dos_bits(core, VLD_MEM_VIFIFO_BUF_CNTL, 1);
 
-	amvdec_write_dos(core, VLD_MEM_VIFIFO_CONTROL, amvdec_read_dos(core, VLD_MEM_VIFIFO_CONTROL) | (0x11 << MEM_FIFO_CNT_BIT) | MEM_FILL_ON_LEVEL | MEM_CTRL_FILL_EN | MEM_CTRL_EMPTY_EN);
+	amvdec_write_dos_bits(core, VLD_MEM_VIFIFO_CONTROL,
+		(0x11 << MEM_FIFO_CNT_BIT) | MEM_FILL_ON_LEVEL |
+		MEM_CTRL_FILL_EN | MEM_CTRL_EMPTY_EN);
 
 	return 0;
 }
@@ -104,9 +111,9 @@ static void vdec_1_conf_esparser(struct amvdec_session *sess)
 	struct amvdec_core *core = sess->core;
 
 	/* VDEC_1 specific ESPARSER stuff */
-	amvdec_write_dos(core, DOS_GEN_CTRL0, 0); // set vififo_vbuf_rp_sel=>vdec
+	amvdec_write_dos(core, DOS_GEN_CTRL0, 0);
 	amvdec_write_dos(core, VLD_MEM_VIFIFO_BUF_CNTL, 1);
-	amvdec_write_dos(core, VLD_MEM_VIFIFO_BUF_CNTL, amvdec_read_dos(core, VLD_MEM_VIFIFO_BUF_CNTL) & ~1);
+	amvdec_clear_dos_bits(core, VLD_MEM_VIFIFO_BUF_CNTL, 1);
 }
 
 static u32 vdec_1_vififo_level(struct amvdec_session *sess)
@@ -122,13 +129,14 @@ static int vdec_1_start(struct amvdec_session *sess)
 	struct amvdec_core *core = sess->core;
 	struct amvdec_codec_ops *codec_ops = sess->fmt_out->codec_ops;
 
+	/* Configure the vdec clk to the maximum available */
 	clk_set_rate(core->vdec_1_clk, 666666666);
 	ret = clk_prepare_enable(core->vdec_1_clk);
 	if (ret)
 		return ret;
 
 	regmap_update_bits(core->regmap_ao, AO_RTI_GEN_PWR_SLEEP0,
-		GEN_PWR_VDEC_1, 0);
+			   GEN_PWR_VDEC_1, 0);
 	udelay(10);
 
 	/* Reset VDEC1 */
@@ -137,15 +145,15 @@ static int vdec_1_start(struct amvdec_session *sess)
 
 	amvdec_write_dos(core, DOS_GCLK_EN0, 0x3ff);
 
-	/* VDEC Memories */
-	amvdec_write_dos(core, DOS_MEM_PD_VDEC, 0x00000000);
+	/* enable VDEC Memories */
+	amvdec_write_dos(core, DOS_MEM_PD_VDEC, 0);
 	/* Remove VDEC1 Isolation */
-	regmap_write(core->regmap_ao, AO_RTI_GEN_PWR_ISO0, 0x00000000);
+	regmap_write(core->regmap_ao, AO_RTI_GEN_PWR_ISO0, 0);
 	/* Reset DOS top registers */
-	amvdec_write_dos(core, DOS_VDEC_MCRCC_STALL_CTRL, 0x00000000);
+	amvdec_write_dos(core, DOS_VDEC_MCRCC_STALL_CTRL, 0);
 
 	amvdec_write_dos(core, GCLK_EN, 0x3ff);
-	amvdec_write_dos(core, MDEC_PIC_DC_CTRL, amvdec_read_dos(core, MDEC_PIC_DC_CTRL) & ~BIT(31));
+	amvdec_clear_dos_bits(core, MDEC_PIC_DC_CTRL, BIT(31));
 
 	vdec_1_stbuf_power_up(sess);
 
@@ -165,7 +173,7 @@ static int vdec_1_start(struct amvdec_session *sess)
 
 	/* Enable 2-plane output */
 	if (sess->pixfmt_cap == V4L2_PIX_FMT_NV12M)
-		amvdec_write_dos(core, MDEC_PIC_DC_CTRL, amvdec_read_dos(core, MDEC_PIC_DC_CTRL) | BIT(17));
+		amvdec_write_dos_bits(core, MDEC_PIC_DC_CTRL, BIT(17));
 
 	/* Enable firmware processor */
 	amvdec_write_dos(core, MPSR, 1);
@@ -182,39 +190,22 @@ static int vdec_1_stop(struct amvdec_session *sess)
 
 	amvdec_write_dos(core, MPSR, 0);
 	amvdec_write_dos(core, CPSR, 0);
-
-	codec_ops->stop(sess);
-
-	while (amvdec_read_dos(core, IMEM_DMA_CTRL) & 0x8000) { }
+	amvdec_write_dos(core, ASSIST_MBOX1_MASK, 0);
 
 	amvdec_write_dos(core, DOS_SW_RESET0, BIT(12)|BIT(11));
 	amvdec_write_dos(core, DOS_SW_RESET0, 0);
 	amvdec_read_dos(core, DOS_SW_RESET0);
 
-	amvdec_write_dos(core, ASSIST_MBOX1_MASK, 0);
-
-	amvdec_write_dos(core, MDEC_PIC_DC_CTRL, amvdec_read_dos(core, MDEC_PIC_DC_CTRL) | 1);
-	amvdec_write_dos(core, MDEC_PIC_DC_CTRL, amvdec_read_dos(core, MDEC_PIC_DC_CTRL) & ~1);
-	amvdec_read_dos(core, MDEC_PIC_DC_STATUS);
-
-	amvdec_write_dos(core, DBLK_CTRL, 3);
-	amvdec_write_dos(core, DBLK_CTRL, 0);
-	amvdec_read_dos(core, DBLK_STATUS);
-
-	amvdec_write_dos(core, MC_CTRL1, amvdec_read_dos(core, MC_CTRL1) | 0x9);
-	amvdec_write_dos(core, MC_CTRL1, amvdec_read_dos(core, MC_CTRL1) & ~0x9);
-	amvdec_read_dos(core, MC_STATUS0);
-
-	while (amvdec_read_dos(core, DCAC_DMA_CTRL) & 0x8000) { }
-
 	/* enable vdec1 isolation */
 	regmap_write(core->regmap_ao, AO_RTI_GEN_PWR_ISO0, 0xc0);
 	/* power off vdec1 memories */
-	writel(0xffffffffUL, core->dos_base + DOS_MEM_PD_VDEC);
+	amvdec_write_dos(core, DOS_MEM_PD_VDEC, 0xffffffff);
+	/* power off vdec1 */
 	regmap_update_bits(core->regmap_ao, AO_RTI_GEN_PWR_SLEEP0,
-		GEN_PWR_VDEC_1, GEN_PWR_VDEC_1);
+			   GEN_PWR_VDEC_1, GEN_PWR_VDEC_1);
 
 	clk_disable_unprepare(core->vdec_1_clk);
+	codec_ops->stop(sess);
 
 	return 0;
 }
