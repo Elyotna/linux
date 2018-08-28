@@ -599,10 +599,7 @@ static int vdec_enum_framesizes(struct file *file, void *fh,
 	u32 num_formats = sess->core->platform->num_formats;
 
 	fmt = find_format(formats, num_formats, fsize->pixel_format);
-	if (!fmt)
-		fmt = sess->fmt_out;
-
-	if (fsize->index)
+	if (!fmt || fsize->index)
 		return -EINVAL;
 
 	fsize->type = V4L2_FRMSIZE_TYPE_STEPWISE;
