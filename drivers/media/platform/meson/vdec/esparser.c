@@ -151,10 +151,12 @@ esparser_write_data(struct amvdec_core *core, dma_addr_t addr, u32 size)
 {
 	amvdec_write_parser(core, PFIFO_RD_PTR, 0);
 	amvdec_write_parser(core, PFIFO_WR_PTR, 0);
-	amvdec_write_parser(core, PARSER_CONTROL, ES_WRITE | ES_PARSER_START | ES_SEARCH | (size << ES_PACK_SIZE_BIT));
+	amvdec_write_parser(core, PARSER_CONTROL,
+	  ES_WRITE | ES_PARSER_START | ES_SEARCH | (size << ES_PACK_SIZE_BIT));
 
 	amvdec_write_parser(core, PARSER_FETCH_ADDR, addr);
-	amvdec_write_parser(core, PARSER_FETCH_CMD, (7 << FETCH_ENDIAN_BIT) | (size + SEARCH_PATTERN_LEN));
+	amvdec_write_parser(core, PARSER_FETCH_CMD,
+			(7 << FETCH_ENDIAN_BIT) | (size + SEARCH_PATTERN_LEN));
 	search_done = 0;
 
 	return wait_event_interruptible_timeout(wq, search_done != 0, HZ/5);
@@ -188,7 +190,9 @@ int esparser_queue_eos(struct amvdec_session *sess)
 	dma_addr_t eos_paddr;
 	int ret;
 
-	eos_vaddr = dma_alloc_coherent(dev, EOS_TAIL_BUF_SIZE + SEARCH_PATTERN_LEN, &eos_paddr, GFP_KERNEL);
+	eos_vaddr = dma_alloc_coherent(dev,
+				       EOS_TAIL_BUF_SIZE + SEARCH_PATTERN_LEN,
+				       &eos_paddr, GFP_KERNEL);
 	if (!eos_vaddr)
 		return -ENOMEM;
 
@@ -201,7 +205,8 @@ int esparser_queue_eos(struct amvdec_session *sess)
 	return ret;
 }
 
-static int esparser_queue(struct amvdec_session *sess, struct vb2_v4l2_buffer *vbuf)
+static int
+esparser_queue(struct amvdec_session *sess, struct vb2_v4l2_buffer *vbuf)
 {
 	int ret;
 	struct vb2_buffer *vb = &vbuf->vb2_buf;
@@ -283,34 +288,39 @@ int esparser_power_up(struct amvdec_session *sess)
 	struct amvdec_ops *vdec_ops = sess->fmt_out->vdec_ops;
 
 	reset_control_reset(core->esparser_reset);
-	writel_relaxed((10 << PS_CFG_PFIFO_EMPTY_CNT_BIT) |
-				(1  << PS_CFG_MAX_ES_WR_CYCLE_BIT) |
-				(16 << PS_CFG_MAX_FETCH_CYCLE_BIT),
-				core->esparser_base + PARSER_CONFIG);
+	amvdec_write_parser(core, PARSER_CONFIG,
+			    (10 << PS_CFG_PFIFO_EMPTY_CNT_BIT) |
+			    (1  << PS_CFG_MAX_ES_WR_CYCLE_BIT) |
+			    (16 << PS_CFG_MAX_FETCH_CYCLE_BIT));
 
 	amvdec_write_parser(core, PFIFO_RD_PTR, 0);
 	amvdec_write_parser(core, PFIFO_WR_PTR, 0);
 
-	amvdec_write_parser(core, PARSER_SEARCH_PATTERN, ES_START_CODE_PATTERN);
-	writel_relaxed(ES_START_CODE_MASK,    core->esparser_base + PARSER_SEARCH_MASK);
+	amvdec_write_parser(core, PARSER_SEARCH_PATTERN,
+			    ES_START_CODE_PATTERN);
+	amvdec_write_parser(core, PARSER_SEARCH_MASK, ES_START_CODE_MASK);
 
-	writel_relaxed((10 << PS_CFG_PFIFO_EMPTY_CNT_BIT) |
-				   (1  << PS_CFG_MAX_ES_WR_CYCLE_BIT) |
-				   (16 << PS_CFG_MAX_FETCH_CYCLE_BIT) |
-				   (2  << PS_CFG_STARTCODE_WID_24_BIT),
-				   core->esparser_base + PARSER_CONFIG);
+	amvdec_write_parser(core, PARSER_CONFIG,
+			    (10 << PS_CFG_PFIFO_EMPTY_CNT_BIT) |
+			    (1  << PS_CFG_MAX_ES_WR_CYCLE_BIT) |
+			    (16 << PS_CFG_MAX_FETCH_CYCLE_BIT) |
+			    (2  << PS_CFG_STARTCODE_WID_24_BIT));
 
-	amvdec_write_parser(core, PARSER_CONTROL, (ES_SEARCH | ES_PARSER_START));
+	amvdec_write_parser(core, PARSER_CONTROL,
+			    (ES_SEARCH | ES_PARSER_START));
 
 	amvdec_write_parser(core, PARSER_VIDEO_START_PTR, sess->vififo_paddr);
-	amvdec_write_parser(core, PARSER_VIDEO_END_PTR, sess->vififo_paddr + sess->vififo_size - 8);
-	amvdec_write_parser(core, PARSER_ES_CONTROL, amvdec_read_parser(core, PARSER_ES_CONTROL) & ~1);
+	amvdec_write_parser(core, PARSER_VIDEO_END_PTR,
+			    sess->vififo_paddr + sess->vififo_size - 8);
+	amvdec_write_parser(core, PARSER_ES_CONTROL,
+			    amvdec_read_parser(core, PARSER_ES_CONTROL) & ~1);
 	
 	if (vdec_ops->conf_esparser)
 		vdec_ops->conf_esparser(sess);
 
 	amvdec_write_parser(core, PARSER_INT_STATUS, 0xffff);
-	amvdec_write_parser(core, PARSER_INT_ENABLE, 1 << PARSER_INT_HOST_EN_BIT);
+	amvdec_write_parser(core, PARSER_INT_ENABLE,
+			    BIT(PARSER_INT_HOST_EN_BIT));
 
 	return 0;
 }
