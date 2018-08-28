@@ -6,7 +6,7 @@
 #include <media/v4l2-mem2mem.h>
 #include <media/videobuf2-dma-contig.h>
 
-#include "codec_helpers.h"
+#include "vdec_helpers.h"
 #include "dos_regs.h"
 
 /* map FW registers to known MJPEG functions */
@@ -87,7 +87,7 @@ static int codec_mjpeg_start(struct amvdec_session *sess)
 	amvdec_write_dos(core, AV_SCRATCH_0, 12);
 	amvdec_write_dos(core, AV_SCRATCH_1, 0x031a);
 
-	amcodec_helper_set_canvases(sess, (u32[]){ AV_SCRATCH_4, 0 },
+	amvdec_set_canvases(sess, (u32[]){ AV_SCRATCH_4, 0 },
 				    (u32[]){ 4, 0 });
 	codec_mjpeg_init_scaler(core);
 

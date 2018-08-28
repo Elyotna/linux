@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (C) 2018 Maxime Jourdan <maxi.jourdan@wanadoo.fr>
+ *
+ * The Elementary Stream Parser is a HW bitstream parser.
+ * It reads bitstream buffers and feeds them to the VIFIFO
  */
 
 #include <linux/init.h>
@@ -14,6 +17,7 @@
 #include <media/v4l2-mem2mem.h>
 
 #include "esparser.h"
+#include "vdec_helpers.h"
 
 /* PARSER REGS (CBUS) */
 #define PARSER_CONTROL 0x00

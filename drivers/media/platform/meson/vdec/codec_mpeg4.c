@@ -6,7 +6,7 @@
 #include <media/v4l2-mem2mem.h>
 #include <media/videobuf2-dma-contig.h>
 
-#include "codec_helpers.h"
+#include "vdec_helpers.h"
 #include "dos_regs.h"
 
 #define SIZE_WORKSPACE		SZ_1M
@@ -63,9 +63,8 @@ static int codec_mpeg4_start(struct amvdec_session *sess) {
 		goto free_mpeg4;
 	}
 
-	amcodec_helper_set_canvases(sess,
-				    (u32[]){ AV_SCRATCH_0, AV_SCRATCH_G, 0 },
-				    (u32[]){ 4, 4, 0 });
+	amvdec_set_canvases(sess, (u32[]){ AV_SCRATCH_0, AV_SCRATCH_G, 0 },
+				  (u32[]){ 4, 4, 0 });
 
 	amvdec_write_dos(core, MEM_OFFSET_REG,
 			 mpeg4->workspace_paddr - DCAC_BUFF_START_IP);
@@ -130,4 +129,3 @@ struct amvdec_codec_ops codec_mpeg4_ops = {
 	.can_recycle = codec_mpeg4_can_recycle,
 	.recycle = codec_mpeg4_recycle,
 };
-

@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (C) 2018 Maxime Jourdan <maxi.jourdan@wanadoo.fr>
+ *
+ * VDEC_1 is a video decoding block that allows decoding of
+ * MPEG 1/2/4, H.263, H.264, MJPEG, VC1
  */
 
 #include <linux/firmware.h>
 #include <linux/clk.h>
 
 #include "vdec_1.h"
+#include "vdec_helpers.h"
 #include "dos_regs.h"
 
 /* AO Registers */
@@ -123,6 +127,35 @@ static u32 vdec_1_vififo_level(struct amvdec_session *sess)
 	return amvdec_read_dos(core, VLD_MEM_VIFIFO_LEVEL);
 }
 
+static int vdec_1_stop(struct amvdec_session *sess)
+{
+	struct amvdec_core *core = sess->core;
+	struct amvdec_codec_ops *codec_ops = sess->fmt_out->codec_ops;
+
+	amvdec_write_dos(core, MPSR, 0);
+	amvdec_write_dos(core, CPSR, 0);
+	amvdec_write_dos(core, ASSIST_MBOX1_MASK, 0);
+
+	amvdec_write_dos(core, DOS_SW_RESET0, BIT(12)|BIT(11));
+	amvdec_write_dos(core, DOS_SW_RESET0, 0);
+	amvdec_read_dos(core, DOS_SW_RESET0);
+
+	/* enable vdec1 isolation */
+	regmap_write(core->regmap_ao, AO_RTI_GEN_PWR_ISO0, 0xc0);
+	/* power off vdec1 memories */
+	amvdec_write_dos(core, DOS_MEM_PD_VDEC, 0xffffffff);
+	/* power off vdec1 */
+	regmap_update_bits(core->regmap_ao, AO_RTI_GEN_PWR_SLEEP0,
+			   GEN_PWR_VDEC_1, GEN_PWR_VDEC_1);
+
+	clk_disable_unprepare(core->vdec_1_clk);
+
+	if (sess->priv)
+		codec_ops->stop(sess);
+
+	return 0;
+}
+
 static int vdec_1_start(struct amvdec_session *sess)
 {
 	int ret;
@@ -158,14 +191,12 @@ static int vdec_1_start(struct amvdec_session *sess)
 	vdec_1_stbuf_power_up(sess);
 
 	ret = vdec_1_load_firmware(sess, sess->fmt_out->firmware_path);
-	if (ret) {
-		clk_disable_unprepare(core->vdec_1_clk);
-		regmap_update_bits(core->regmap_ao, AO_RTI_GEN_PWR_SLEEP0,
-			GEN_PWR_VDEC_1, GEN_PWR_VDEC_1);
-		return ret;
-	}
+	if (ret)
+		goto stop;
 
-	codec_ops->start(sess);
+	ret = codec_ops->start(sess);
+	if (ret)
+		goto stop;
 
 	/* Enable IRQ */
 	amvdec_write_dos(core, ASSIST_MBOX1_CLR_REG, 1);
@@ -181,33 +212,10 @@ static int vdec_1_start(struct amvdec_session *sess)
 	udelay(10);
 
 	return 0;
-}
 
-static int vdec_1_stop(struct amvdec_session *sess)
-{
-	struct amvdec_core *core = sess->core;
-	struct amvdec_codec_ops *codec_ops = sess->fmt_out->codec_ops;
-
-	amvdec_write_dos(core, MPSR, 0);
-	amvdec_write_dos(core, CPSR, 0);
-	amvdec_write_dos(core, ASSIST_MBOX1_MASK, 0);
-
-	amvdec_write_dos(core, DOS_SW_RESET0, BIT(12)|BIT(11));
-	amvdec_write_dos(core, DOS_SW_RESET0, 0);
-	amvdec_read_dos(core, DOS_SW_RESET0);
-
-	/* enable vdec1 isolation */
-	regmap_write(core->regmap_ao, AO_RTI_GEN_PWR_ISO0, 0xc0);
-	/* power off vdec1 memories */
-	amvdec_write_dos(core, DOS_MEM_PD_VDEC, 0xffffffff);
-	/* power off vdec1 */
-	regmap_update_bits(core->regmap_ao, AO_RTI_GEN_PWR_SLEEP0,
-			   GEN_PWR_VDEC_1, GEN_PWR_VDEC_1);
-
-	clk_disable_unprepare(core->vdec_1_clk);
-	codec_ops->stop(sess);
-
-	return 0;
+stop:
+	vdec_1_stop(sess);
+	return ret;
 }
 
 struct amvdec_ops vdec_1_ops = {

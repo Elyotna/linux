@@ -10,7 +10,7 @@
 #include "codec_hevc.h"
 #include "dos_regs.h"
 #include "hevc_regs.h"
-#include "codec_helpers.h"
+#include "vdec_helpers.h"
 
 /* HEVC reg mapping */
 #define HEVC_DEC_STATUS_REG	HEVC_ASSIST_SCRATCH_0
@@ -535,8 +535,8 @@ static void codec_hevc_output_frames(struct amvdec_session *sess)
 static void codec_hevc_setup_decode_head(struct amvdec_session *sess)
 {
 	struct amvdec_core *core = sess->core;
-	u32 body_size = amcodec_am21c_body_size(sess->width, sess->height);
-	u32 head_size = amcodec_am21c_head_size(sess->width, sess->height);
+	u32 body_size = amvdec_am21c_body_size(sess->width, sess->height);
+	u32 head_size = amvdec_am21c_head_size(sess->width, sess->height);
 
 	if (!codec_hevc_use_fbc(sess)) {
 		/* Enable 2-plane reference read mode for MC */
@@ -648,7 +648,7 @@ static void codec_hevc_free_fbc_buffers(struct amvdec_session *sess)
 
 	for (i = 0; i < 24; ++i)
 		if (hevc->fbc_buffer_vaddr[i]) {
-			dma_free_coherent(dev, amcodec_am21c_size(sess->width, sess->height), hevc->fbc_buffer_vaddr[i], hevc->fbc_buffer_paddr[i]);
+			dma_free_coherent(dev, amvdec_am21c_size(sess->width, sess->height), hevc->fbc_buffer_vaddr[i], hevc->fbc_buffer_paddr[i]);
 			hevc->fbc_buffer_vaddr[i] = NULL;
 		}
 }
@@ -661,7 +661,7 @@ static int codec_hevc_alloc_fbc_buffers(struct amvdec_session *sess)
 
 	v4l2_m2m_for_each_dst_buf(sess->m2m_ctx, buf) {
 		u32 idx = buf->vb.vb2_buf.index;
-		hevc->fbc_buffer_vaddr[idx] = dma_alloc_coherent(dev, amcodec_am21c_size(sess->width, sess->height), &hevc->fbc_buffer_paddr[idx], GFP_KERNEL);
+		hevc->fbc_buffer_vaddr[idx] = dma_alloc_coherent(dev, amvdec_am21c_size(sess->width, sess->height), &hevc->fbc_buffer_paddr[idx], GFP_KERNEL);
 		if (!hevc->fbc_buffer_vaddr[idx]) {
 			dev_err(dev, "Couldn't allocate FBC buffer %u\n", idx);
 			codec_hevc_free_fbc_buffers(sess);
@@ -691,10 +691,9 @@ static int codec_hevc_setup_buffers(struct amvdec_session *sess)
 	return 0;
 }
 
-static int codec_hevc_setup_workspace(struct amvdec_session *sess)
+static int
+codec_hevc_setup_workspace(struct amvdec_core *core, struct codec_hevc *hevc)
 {
-	struct amvdec_core *core = sess->core;
-	struct codec_hevc *hevc = sess->priv;
 	dma_addr_t wkaddr;
 
 	/* Allocate some memory for the HEVC decoder's state */
@@ -739,9 +738,8 @@ static int codec_hevc_start(struct amvdec_session *sess)
 
 	INIT_LIST_HEAD(&hevc->ref_frames_list);
 	hevc->curr_poc = INVALID_POC;
-	sess->priv = hevc;
 
-	ret = codec_hevc_setup_workspace(sess);
+	ret = codec_hevc_setup_workspace(core, hevc);
 	if (ret)
 		goto free_hevc;
 
@@ -803,12 +801,12 @@ static int codec_hevc_start(struct amvdec_session *sess)
 
 	amvdec_write_dos(core, HEVC_AUX_ADR, hevc->aux_paddr);
 	amvdec_write_dos(core, HEVC_AUX_DATA_SIZE, (((SIZE_AUX) >> 4) << 16) | 0);
+	sess->priv = hevc;
 
 	return 0;
 
 free_hevc:
 	kfree(hevc);
-	sess->priv = NULL;
 	return ret;
 }
 

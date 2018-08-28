@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
  * Copyright (C) 2018 Maxime Jourdan <maxi.jourdan@wanadoo.fr>
+ *
+ * VDEC_HEVC is a video decoding block that allows decoding of
+ * HEVC, VP9
  */
 
 #include <linux/firmware.h>
 #include <linux/clk.h>
 
 #include "vdec_1.h"
+#include "vdec_helpers.h"
 #include "hevc_regs.h"
 #include "dos_regs.h"
 
@@ -107,7 +111,8 @@ static int vdec_hevc_stop(struct amvdec_session *sess)
 	/* Disable firmware processor */
 	amvdec_write_dos(core, HEVC_MPSR, 0);
 
-	codec_ops->stop(sess);
+	if (sess->priv)
+		codec_ops->stop(sess);
 
 	/* Enable VDEC_HEVC Isolation */
 	regmap_update_bits(core->regmap_ao, AO_RTI_GEN_PWR_ISO0, 0xc00, 0xc00);
@@ -156,12 +161,12 @@ static int vdec_hevc_start(struct amvdec_session *sess)
 	vdec_hevc_stbuf_init(sess);
 
 	ret = vdec_hevc_load_firmware(sess, sess->fmt_out->firmware_path);
-	if (ret) {
-		vdec_hevc_stop(sess);
-		return ret;
-	}
+	if (ret)
+		goto stop;
 
-	codec_ops->start(sess);
+	ret = codec_ops->start(sess);
+	if (ret)
+		goto stop;
 
 	amvdec_write_dos(core, DOS_SW_RESET3, BIT(12)|BIT(11));
 	amvdec_write_dos(core, DOS_SW_RESET3, 0);
@@ -172,6 +177,10 @@ static int vdec_hevc_start(struct amvdec_session *sess)
 	udelay(10);
 
 	return 0;
+
+stop:
+	vdec_hevc_stop(sess);
+	return ret;
 }
 
 struct amvdec_ops vdec_hevc_ops = {

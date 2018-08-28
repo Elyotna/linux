@@ -20,18 +20,10 @@
 #include "vdec.h"
 #include "esparser.h"
 #include "vdec_1.h"
-#include "codec_helpers.h"
+#include "vdec_helpers.h"
 
 /* 16 MiB for parsed bitstream swap exchange */
 #define SIZE_VIFIFO SZ_16M
-
-void amvdec_abort(struct amvdec_session *sess)
-{
-	dev_info(sess->core->dev, "Aborting decoding session!\n");
-	vb2_queue_error(&sess->m2m_ctx->cap_q_ctx.q);
-	vb2_queue_error(&sess->m2m_ctx->out_q_ctx.q);
-}
-EXPORT_SYMBOL_GPL(amvdec_abort);
 
 static u32 get_output_size(u32 width, u32 height)
 {
@@ -111,7 +103,7 @@ static void vdec_wait_inactive(struct amvdec_session *sess)
 	/* We consider 50ms with no IRQ to be inactive. */
 	while (time_is_after_jiffies64(
 	       sess->last_irq_jiffies + msecs_to_jiffies(50)))
-		msleep(50);
+		msleep(25);
 }
 
 static void vdec_poweroff(struct amvdec_session *sess) {
@@ -182,7 +174,7 @@ static int vdec_queue_setup(struct vb2_queue *q,
 			sizes[2] = amvdec_get_output_size(sess) / 4;
 			*num_planes = 3;
 		} else if (pixfmt_cap == V4L2_PIX_FMT_AM21C) {
-			sizes[0] = amcodec_am21c_size(sess->width, sess->height);
+			sizes[0] = amvdec_am21c_size(sess->width, sess->height);
 			*num_planes = 1;
 		}
 		*num_buffers = min(max(*num_buffers, fmt_out->min_buffers),
@@ -447,7 +439,7 @@ vdec_try_fmt_common(struct amvdec_session *sess, u32 size, struct v4l2_format *f
 			pixmp->num_planes = 3;
 		} else if (pixmp->pixelformat == V4L2_PIX_FMT_AM21C) {
 			pfmt[0].sizeimage =
-				amcodec_am21c_size(pixmp->width, pixmp->height);
+				amvdec_am21c_size(pixmp->width, pixmp->height);
 			pfmt[0].bytesperline = 0;
 		}
 	}
@@ -751,17 +743,6 @@ static int vdec_open(struct file *file)
 	}
 
 	sess->core = core;
-	sess->pixfmt_cap = formats[0].pixfmts_cap[0];
-	sess->fmt_out = &formats[0];
-	sess->width = 1280;
-	sess->height = 720;
-	INIT_LIST_HEAD(&sess->timestamps);
-	INIT_LIST_HEAD(&sess->bufs_recycle);
-	INIT_WORK(&sess->esparser_queue_work, esparser_queue_all_src);
-	spin_lock_init(&sess->ts_spinlock);
-	mutex_init(&sess->lock);
-	mutex_init(&sess->codec_lock);
-	mutex_init(&sess->bufs_recycle_lock);
 
 	sess->m2m_dev = v4l2_m2m_init(&vdec_m2m_ops);
 	if (IS_ERR(sess->m2m_dev)) {
@@ -776,6 +757,19 @@ static int vdec_open(struct file *file)
 		ret = PTR_ERR(sess->m2m_ctx);
 		goto err_m2m_release;
 	}
+
+	sess->pixfmt_cap = formats[0].pixfmts_cap[0];
+	sess->fmt_out = &formats[0];
+	sess->width = 1280;
+	sess->height = 720;
+
+	INIT_LIST_HEAD(&sess->timestamps);
+	INIT_LIST_HEAD(&sess->bufs_recycle);
+	INIT_WORK(&sess->esparser_queue_work, esparser_queue_all_src);
+	mutex_init(&sess->lock);
+	mutex_init(&sess->codec_lock);
+	mutex_init(&sess->bufs_recycle_lock);
+	spin_lock_init(&sess->ts_spinlock);
 
 	v4l2_fh_init(&sess->fh, core->vdev_dec);
 	v4l2_fh_add(&sess->fh);
@@ -801,7 +795,10 @@ static int vdec_close(struct file *file)
 	v4l2_m2m_release(sess->m2m_dev);
 	v4l2_fh_del(&sess->fh);
 	v4l2_fh_exit(&sess->fh);
+
 	mutex_destroy(&sess->lock);
+	mutex_destroy(&sess->codec_lock);
+	mutex_destroy(&sess->bufs_recycle_lock);
 
 	kfree(sess);
 
@@ -810,159 +807,6 @@ static int vdec_close(struct file *file)
 
 	return 0;
 }
-
-void amvdec_rm_first_ts(struct amvdec_session *sess)
-{
-	unsigned long flags;
-	struct amvdec_buffer *tmp;
-	struct device *dev = sess->core->dev_dec;
-
-	spin_lock_irqsave(&sess->ts_spinlock, flags);
-	if (list_empty(&sess->timestamps)) {
-		dev_err(dev, "Can't rm first timestamp: list empty\n");
-		goto unlock;
-	}
-
-	tmp = list_first_entry(&sess->timestamps, struct amvdec_buffer, list);
-	list_del(&tmp->list);
-	kfree(tmp);
-	atomic_dec(&sess->esparser_queued_bufs);
-
-unlock:
-	spin_unlock_irqrestore(&sess->ts_spinlock, flags);
-}
-
-void amvdec_dst_buf_done(struct amvdec_session *sess,
-			 struct vb2_v4l2_buffer *vbuf, u32 field)
-{
-	struct device *dev = sess->core->dev_dec;
-	struct amvdec_timestamp *tmp;
-	u32 output_size = amvdec_get_output_size(sess);
-	unsigned long flags;
-
-	spin_lock_irqsave(&sess->ts_spinlock, flags);
-	if (list_empty(&sess->timestamps)) {
-		dev_err(dev, "Buffer %u done but list is empty\n",
-			vbuf->vb2_buf.index);
-
-		v4l2_m2m_buf_done(vbuf, VB2_BUF_STATE_ERROR);
-		amvdec_abort(sess);
-		spin_unlock_irqrestore(&sess->ts_spinlock, flags);
-		goto end;
-	}
-
-	tmp = list_first_entry(&sess->timestamps, struct amvdec_timestamp, list);
-
-	switch (sess->pixfmt_cap) {
-	case V4L2_PIX_FMT_NV12M:
-		vbuf->vb2_buf.planes[0].bytesused = output_size;
-		vbuf->vb2_buf.planes[1].bytesused = output_size / 2;
-		break;
-	case V4L2_PIX_FMT_YUV420M:
-		vbuf->vb2_buf.planes[0].bytesused = output_size;
-		vbuf->vb2_buf.planes[1].bytesused = output_size / 4;
-		vbuf->vb2_buf.planes[2].bytesused = output_size / 4;
-		break;
-	case V4L2_PIX_FMT_AM21C:
-		vbuf->vb2_buf.planes[0].bytesused =
-			amcodec_am21c_size(sess->width, sess->height);
-		break;
-	}
-	vbuf->vb2_buf.timestamp = tmp->ts;
-	vbuf->sequence = sess->sequence_cap++;
-
-	list_del(&tmp->list);
-	kfree(tmp);
-	spin_unlock_irqrestore(&sess->ts_spinlock, flags);
-
-	atomic_dec(&sess->esparser_queued_bufs);
-
-	if (sess->should_stop && list_empty(&sess->timestamps)) {
-		const struct v4l2_event ev = { .type = V4L2_EVENT_EOS };
-		dev_dbg(dev, "Signaling EOS\n");
-		v4l2_event_queue_fh(&sess->fh, &ev);
-		vbuf->flags |= V4L2_BUF_FLAG_LAST;
-	} else if (sess->should_stop)
-		dev_dbg(dev, "should_stop, %u bufs remain\n",
-			atomic_read(&sess->esparser_queued_bufs));
-
-	vbuf->field = field;
-	v4l2_m2m_buf_done(vbuf, VB2_BUF_STATE_DONE);
-
-end:
-	/* Buffer done probably means the vififo got freed */
-	schedule_work(&sess->esparser_queue_work);
-}
-EXPORT_SYMBOL_GPL(amvdec_dst_buf_done);
-
-void
-amvdec_dst_buf_done_idx(struct amvdec_session *sess, u32 buf_idx, u32 field)
-{
-	struct vb2_v4l2_buffer *vbuf;
-	struct device *dev = sess->core->dev_dec;
-
-	vbuf = v4l2_m2m_dst_buf_remove_by_idx(sess->m2m_ctx, buf_idx);
-	if (!vbuf) {
-		dev_err(dev, "Buffer %u done but it doesn't exist in m2m_ctx\n",
-			buf_idx);
-		amvdec_rm_first_ts(sess);
-		return;
-	}
-
-	amvdec_dst_buf_done(sess, vbuf, field);
-}
-EXPORT_SYMBOL_GPL(amvdec_dst_buf_done_idx);
-
-/* Userspace will queue src buffer timestamps that are not
- * in chronological order. Rearrange them here.
- */
-void amvdec_add_ts_reorder(struct amvdec_session *sess, u64 ts)
-{
-	struct amvdec_timestamp *new_ts, *tmp;
-	unsigned long flags;
-
-	new_ts = kmalloc(sizeof(*new_ts), GFP_KERNEL);
-	new_ts->ts = ts;
-
-	spin_lock_irqsave(&sess->ts_spinlock, flags);
-
-	if (list_empty(&sess->timestamps))
-		goto add_tail;
-
-	list_for_each_entry(tmp, &sess->timestamps, list) {
-		if (ts < tmp->ts) {
-			list_add_tail(&new_ts->list, &tmp->list);
-			goto unlock;
-		}
-	}
-
-add_tail:
-	list_add_tail(&new_ts->list, &sess->timestamps);
-unlock:
-	spin_unlock_irqrestore(&sess->ts_spinlock, flags);
-}
-EXPORT_SYMBOL_GPL(amvdec_add_ts_reorder);
-
-void amvdec_remove_ts(struct amvdec_session *sess, u64 ts)
-{
-	struct amvdec_timestamp *tmp;
-	unsigned long flags;
-
-	spin_lock_irqsave(&sess->ts_spinlock, flags);
-	list_for_each_entry(tmp, &sess->timestamps, list) {
-		if (tmp->ts == ts) {
-			list_del(&tmp->list);
-			kfree(tmp);
-			goto unlock;
-		}
-	}
-	dev_warn(sess->core->dev_dec,
-		"Couldn't remove buffer with timestamp %llu from list\n", ts);
-
-unlock:
-	spin_unlock_irqrestore(&sess->ts_spinlock, flags);
-}
-EXPORT_SYMBOL_GPL(amvdec_remove_ts);
 
 static const struct v4l2_file_operations vdec_fops = {
 	.owner = THIS_MODULE,
@@ -975,42 +819,6 @@ static const struct v4l2_file_operations vdec_fops = {
 	.compat_ioctl32 = v4l2_compat_ioctl32,
 #endif
 };
-
-u32 amvdec_read_dos(struct amvdec_core *core, u32 reg)
-{
-	return readl_relaxed(core->dos_base + reg);
-}
-EXPORT_SYMBOL_GPL(amvdec_read_dos);
-
-void amvdec_write_dos(struct amvdec_core *core, u32 reg, u32 val)
-{
-	writel_relaxed(val, core->dos_base + reg);
-}
-EXPORT_SYMBOL_GPL(amvdec_write_dos);
-
-void amvdec_write_dos_bits(struct amvdec_core *core, u32 reg, u32 val)
-{
-	amvdec_write_dos(core, reg, amvdec_read_dos(core, reg) | val);
-}
-EXPORT_SYMBOL_GPL(amvdec_write_dos_bits);
-
-void amvdec_clear_dos_bits(struct amvdec_core *core, u32 reg, u32 val)
-{
-	amvdec_write_dos(core, reg, amvdec_read_dos(core, reg) & ~val);
-}
-EXPORT_SYMBOL_GPL(amvdec_clear_dos_bits);
-
-u32 amvdec_read_parser(struct amvdec_core *core, u32 reg)
-{
-	return readl_relaxed(core->esparser_base + reg);
-}
-EXPORT_SYMBOL_GPL(amvdec_read_parser);
-
-void amvdec_write_parser(struct amvdec_core *core, u32 reg, u32 val)
-{
-	writel_relaxed(val, core->esparser_base + reg);
-}
-EXPORT_SYMBOL_GPL(amvdec_write_parser);
 
 static irqreturn_t vdec_isr(int irq, void *data)
 {

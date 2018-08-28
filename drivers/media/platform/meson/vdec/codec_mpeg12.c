@@ -6,7 +6,7 @@
 #include <media/v4l2-mem2mem.h>
 #include <media/videobuf2-dma-contig.h>
 
-#include "codec_helpers.h"
+#include "vdec_helpers.h"
 #include "dos_regs.h"
 
 #define SIZE_WORKSPACE		SZ_128K
@@ -55,8 +55,6 @@ static int codec_mpeg12_start(struct amvdec_session *sess) {
 	if (!mpeg12)
 		return -ENOMEM;
 
-	sess->priv = mpeg12;
-
 	/* Allocate some memory for the MPEG1/2 decoder's state */
 	mpeg12->workspace_vaddr = dma_alloc_coherent(core->dev, SIZE_WORKSPACE,
 						     &mpeg12->workspace_paddr,
@@ -67,10 +65,12 @@ static int codec_mpeg12_start(struct amvdec_session *sess) {
 		goto free_mpeg12;
 	}
 
-	amvdec_write_dos(core, POWER_CTL_VLD, BIT(4));
+	ret = amvdec_set_canvases(sess, (u32[]){ AV_SCRATCH_0, 0 },
+					(u32[]){ 8, 0 });
+	if (ret)
+		goto free_workspace;
 
-	amcodec_helper_set_canvases(sess, (u32[]){ AV_SCRATCH_0, 0 },
-				    (u32[]){ 8, 0 });
+	amvdec_write_dos(core, POWER_CTL_VLD, BIT(4));
 
 	amvdec_write_dos(core, MREG_CO_MV_START,
 			 mpeg12->workspace_paddr + WORKSPACE_OFFSET);
@@ -85,11 +85,16 @@ static int codec_mpeg12_start(struct amvdec_session *sess) {
 	amvdec_write_dos(core, MREG_ERROR_COUNT, 0);
 	amvdec_write_dos(core, MREG_FATAL_ERROR, 0);
 	amvdec_write_dos(core, MREG_WAIT_BUFFER, 0);
+	sess->priv = mpeg12;
 
 	return 0;
 
+free_workspace:
+	dma_free_coherent(core->dev, SIZE_WORKSPACE, mpeg12->workspace_vaddr,
+			  mpeg12->workspace_paddr);
 free_mpeg12:
 	kfree(mpeg12);
+
 	return ret;
 }
 
@@ -159,4 +164,3 @@ struct amvdec_codec_ops codec_mpeg12_ops = {
 	.can_recycle = codec_mpeg12_can_recycle,
 	.recycle = codec_mpeg12_recycle,
 };
-

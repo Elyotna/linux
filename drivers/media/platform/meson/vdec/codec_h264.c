@@ -6,7 +6,7 @@
 #include <media/v4l2-mem2mem.h>
 #include <media/videobuf2-dma-contig.h>
 
-#include "codec_helpers.h"
+#include "vdec_helpers.h"
 #include "dos_regs.h"
 
 #define SIZE_EXT_FW	(20 * SZ_1K)
@@ -87,7 +87,7 @@ static int codec_h264_start(struct amvdec_session *sess) {
 	h264->workspace_vaddr =
 		dma_alloc_coherent(core->dev, SIZE_WORKSPACE, &h264->workspace_paddr, GFP_KERNEL);
 	if (!h264->workspace_vaddr) {
-		dev_err(core->dev, "Failed to request H.264 Workspace\n");
+		dev_err(core->dev, "Failed to alloc H.264 Workspace\n");
 		return -ENOMEM;
 	}
 
@@ -95,14 +95,11 @@ static int codec_h264_start(struct amvdec_session *sess) {
 	h264->sei_vaddr =
 		dma_alloc_coherent(core->dev, SIZE_SEI, &h264->sei_paddr, GFP_KERNEL);
 	if (!h264->sei_vaddr) {
-		dev_err(core->dev, "Failed to request H.264 SEI\n");
+		dev_err(core->dev, "Failed to alloc H.264 SEI\n");
 		return -ENOMEM;
 	}
 
-	while (amvdec_read_dos(core, DCAC_DMA_CTRL) & 0x8000) { }
-	while (amvdec_read_dos(core, LMEM_DMA_CTRL) & 0x8000) { }
-
-	amvdec_write_dos(core, POWER_CTL_VLD, amvdec_read_dos(core, POWER_CTL_VLD) | BIT(9) | BIT(6));
+	amvdec_write_dos_bits(core, POWER_CTL_VLD, BIT(9) | BIT(6));
 
 	amvdec_write_dos(core, PSCALE_CTRL, 0);
 	amvdec_write_dos(core, AV_SCRATCH_0, 0);
@@ -116,7 +113,7 @@ static int codec_h264_start(struct amvdec_session *sess) {
 	amvdec_write_dos(core, AV_SCRATCH_8, 0);
 	amvdec_write_dos(core, AV_SCRATCH_9, 0);
 
-	/* Enable "error correction", don't know what it means */
+	/* Enable "error correction" */
 	amvdec_write_dos(core, AV_SCRATCH_F, (amvdec_read_dos(core, AV_SCRATCH_F) & 0xffffffc3) | BIT(4) | BIT(7));
 
 	amvdec_write_dos(core, MDEC_PIC_DC_THRESH, 0x404038aa);
@@ -135,7 +132,7 @@ static int codec_h264_stop(struct amvdec_session *sess)
 	
 	if (h264->workspace_vaddr)
 		dma_free_coherent(core->dev, SIZE_WORKSPACE,
-				  h264->workspace_vaddr, h264->workspace_paddr);
+				 h264->workspace_vaddr, h264->workspace_paddr);
 	
 	if (h264->ref_vaddr)
 		dma_free_coherent(core->dev, h264->ref_size,
@@ -165,8 +162,7 @@ static int codec_h264_load_extended_firmware(struct amvdec_session *sess, const 
 	h264->ext_fw_vaddr = dma_alloc_coherent(core->dev, SIZE_EXT_FW,
 						&h264->ext_fw_paddr, GFP_KERNEL);
 	if (!h264->ext_fw_vaddr) {
-		dev_err(core->dev,
-			"Couldn't allocate memory for H.264 extended fw\n");
+		dev_err(core->dev, "Failed to alloc H.264 extended fw\n");
 		return -ENOMEM;
 	}
 
@@ -210,8 +206,8 @@ static void codec_h264_set_param(struct amvdec_session *sess) {
 	mb_height = ALIGN(mb_height, 4);
 	mb_total = mb_width * mb_height;
 
-	amcodec_helper_set_canvases(sess, (u32[]){ ANC0_CANVAS_ADDR, 0 },
-				    (u32[]){ 24, 0 });
+	amvdec_set_canvases(sess, (u32[]){ ANC0_CANVAS_ADDR, 0 },
+				  (u32[]){ 24, 0 });
 
 	if (max_reference_size > max_dpb_size)
 		max_dpb_size = max_reference_size;
@@ -225,7 +221,7 @@ static void codec_h264_set_param(struct amvdec_session *sess) {
 	h264->ref_vaddr = dma_alloc_coherent(core->dev, h264->ref_size,
 					     &h264->ref_paddr, GFP_KERNEL);
 	if (!h264->ref_vaddr) {
-		dev_err(core->dev, "Failed to allocate memory for refs (%u)\n",
+		dev_err(core->dev, "Failed to alloc refs (%u)\n",
 			h264->ref_size);
 		amvdec_abort(sess);
 		return;
@@ -356,4 +352,3 @@ struct amvdec_codec_ops codec_h264_ops = {
 	.can_recycle = codec_h264_can_recycle,
 	.recycle = codec_h264_recycle,
 };
-
