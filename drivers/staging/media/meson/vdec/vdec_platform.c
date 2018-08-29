@@ -8,12 +8,24 @@
 #include "vdec.h"
 
 #include "vdec_1.h"
+#include "vdec_hevc.h"
 #include "codec_mpeg12.h"
 #include "codec_h264.h"
 #include "codec_mpeg4.h"
+#include "codec_hevc.h"
 
 static const struct amvdec_format vdec_formats_gxbb[] = {
 	{
+		.pixfmt = V4L2_PIX_FMT_HEVC,
+		.min_buffers = 16,
+		.max_buffers = 24,
+		.max_width = 3840,
+		.max_height = 2160,
+		.vdec_ops = &vdec_hevc_ops,
+		.codec_ops = &codec_hevc_ops,
+		.firmware_path = "meson/gx/vh265_mc",
+		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, V4L2_PIX_FMT_AM21C, 0 },
+	}, {
 		.pixfmt = V4L2_PIX_FMT_MPEG4,
 		.min_buffers = 8,
 		.max_buffers = 8,
@@ -82,6 +94,16 @@ static const struct amvdec_format vdec_formats_gxbb[] = {
 
 static const struct amvdec_format vdec_formats_gxl[] = {
 	{
+		.pixfmt = V4L2_PIX_FMT_HEVC,
+		.min_buffers = 16,
+		.max_buffers = 24,
+		.max_width = 3840,
+		.max_height = 2160,
+		.vdec_ops = &vdec_hevc_ops,
+		.codec_ops = &codec_hevc_ops,
+		.firmware_path = "meson/gx/vh265_mc",
+		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, V4L2_PIX_FMT_AM21C, 0 },
+	}, {
 		.pixfmt = V4L2_PIX_FMT_MPEG4,
 		.min_buffers = 8,
 		.max_buffers = 8,
@@ -150,6 +172,16 @@ static const struct amvdec_format vdec_formats_gxl[] = {
 
 static const struct amvdec_format vdec_formats_gxm[] = {
 	{
+		.pixfmt = V4L2_PIX_FMT_HEVC,
+		.min_buffers = 16,
+		.max_buffers = 24,
+		.max_width = 3840,
+		.max_height = 2160,
+		.vdec_ops = &vdec_hevc_ops,
+		.codec_ops = &codec_hevc_ops,
+		.firmware_path = "meson/gx/vh265_mc",
+		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, V4L2_PIX_FMT_AM21C, 0 },
+	}, {
 		.pixfmt = V4L2_PIX_FMT_MPEG4,
 		.min_buffers = 8,
 		.max_buffers = 8,
