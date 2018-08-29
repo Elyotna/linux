@@ -52,9 +52,6 @@
 #define SEARCH_PATTERN_LEN	512
 #define MIN_PACKET_SIZE		(4 * SZ_1K)
 
-static DECLARE_WAIT_QUEUE_HEAD(wq);
-static int search_done;
-
 /* Buffer to send to the ESPARSER to signal End Of Stream.
  * Credits to Endless Mobile.
  */
@@ -99,6 +96,9 @@ static const u8 eos_tail_data[EOS_TAIL_BUF_SIZE] = {
 	0x5c, 0xa1, 0xb4, 0xc3, 0x4f, 0x60, 0x2b, 0xb0, 0x0c, 0xc8, 0xd6, 0x66, 0xba, 0x9b, 0x82, 0x29,
 	0x33, 0x92, 0x26, 0x99, 0x31, 0x1c, 0x7f, 0x9b
 };
+
+static DECLARE_WAIT_QUEUE_HEAD(wq);
+static int search_done;
 
 static irqreturn_t esparser_isr(int irq, void *dev)
 {
@@ -154,8 +154,8 @@ esparser_write_data(struct amvdec_core *core, dma_addr_t addr, u32 size)
 	amvdec_write_parser(core, PARSER_FETCH_ADDR, addr);
 	amvdec_write_parser(core, PARSER_FETCH_CMD,
 			(7 << FETCH_ENDIAN_BIT) | (size + SEARCH_PATTERN_LEN));
-	search_done = 0;
 
+	search_done = 0;
 	return wait_event_interruptible_timeout(wq, search_done != 0, HZ/5);
 }
 
@@ -179,10 +179,9 @@ static u32 esparser_vififo_get_free_space(struct amvdec_session *sess)
 	return sess->vififo_size - vififo_usage;
 }
 
-int esparser_queue_eos(struct amvdec_session *sess)
+int esparser_queue_eos(struct amvdec_core *core)
 {
-	struct device *dev = sess->core->dev;
-	struct amvdec_core *core = sess->core;
+	struct device *dev = core->dev;
 	void *eos_vaddr;
 	dma_addr_t eos_paddr;
 	int ret;
@@ -215,7 +214,7 @@ esparser_queue(struct amvdec_session *sess, struct vb2_v4l2_buffer *vbuf)
 	u32 pad_size;
 
 	if (!payload_size) {
-		esparser_queue_eos(sess);
+		esparser_queue_eos(core);
 		return 0;
 	}
 
@@ -334,16 +333,15 @@ int esparser_init(struct platform_device *pdev, struct amvdec_core *core)
 		return irq;
 	}
 
-	ret = devm_request_irq(dev, irq, esparser_isr,
-					IRQF_SHARED,
-					"esparserirq", core);
+	ret = devm_request_irq(dev, irq, esparser_isr, IRQF_SHARED,
+			       "esparserirq", core);
 	if (ret) {
 		dev_err(dev, "Failed requesting ESPARSER IRQ\n");
 		return ret;
 	}
 
-	core->esparser_reset = devm_reset_control_get_exclusive(dev,
-                                                "esparser");
+	core->esparser_reset =
+		devm_reset_control_get_exclusive(dev, "esparser");
         if (IS_ERR(core->esparser_reset)) {
                 dev_err(dev, "Failed to get esparser_reset\n");
                 return PTR_ERR(core->esparser_reset);

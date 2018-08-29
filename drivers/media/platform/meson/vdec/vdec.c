@@ -649,7 +649,7 @@ vdec_decoder_cmd(struct file *file, void *fh, struct v4l2_decoder_cmd *cmd)
 	if (codec_ops->drain)
 		codec_ops->drain(sess);
 	else
-		esparser_queue_eos(sess);
+		esparser_queue_eos(sess->core);
 
 unlock:
 	mutex_unlock(&sess->lock);
