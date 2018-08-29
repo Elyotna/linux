@@ -29,6 +29,12 @@ void amvdec_dst_buf_done_idx(struct amvdec_session *sess, u32 buf_idx,
 void amvdec_dst_buf_done(struct amvdec_session *sess,
 			 struct vb2_v4l2_buffer *vbuf, u32 field);
 
+/**
+ * amvdec_add_ts_reorder() - Add a timestamp to the list in chronological order
+ *
+ * @sess: current session
+ * @ts: timestamp to add
+ */
 void amvdec_add_ts_reorder(struct amvdec_session *sess, u64 ts);
 void amvdec_remove_ts(struct amvdec_session *sess, u64 ts);
 void amvdec_rm_first_ts(struct amvdec_session *sess);

@@ -22,6 +22,11 @@
 #include "vdec_1.h"
 #include "vdec_helpers.h"
 
+struct dummy_buf {
+	struct vb2_v4l2_buffer vb;
+	struct list_head list;
+};
+
 /* 16 MiB for parsed bitstream swap exchange */
 #define SIZE_VIFIFO SZ_16M
 
@@ -767,7 +772,6 @@ static int vdec_open(struct file *file)
 	INIT_LIST_HEAD(&sess->bufs_recycle);
 	INIT_WORK(&sess->esparser_queue_work, esparser_queue_all_src);
 	mutex_init(&sess->lock);
-	mutex_init(&sess->codec_lock);
 	mutex_init(&sess->bufs_recycle_lock);
 	spin_lock_init(&sess->ts_spinlock);
 
@@ -797,7 +801,6 @@ static int vdec_close(struct file *file)
 	v4l2_fh_exit(&sess->fh);
 
 	mutex_destroy(&sess->lock);
-	mutex_destroy(&sess->codec_lock);
 	mutex_destroy(&sess->bufs_recycle_lock);
 
 	kfree(sess);

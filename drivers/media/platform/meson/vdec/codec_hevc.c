@@ -241,6 +241,8 @@ struct codec_hevc {
 	/* Current decoding status provided by the ISR */
 	u32 dec_status;
 
+	struct mutex lock;
+
 	/* Buffer for the HEVC Workspace */
 	void      *workspace_vaddr;
 	dma_addr_t workspace_paddr;
@@ -323,15 +325,13 @@ static u32 codec_hevc_num_pending_bufs(struct amvdec_session *sess)
 	struct codec_hevc *hevc;
 	u32 ret;
 
-	mutex_lock(&sess->codec_lock);
 	hevc = sess->priv;
-	if (!hevc) {
-		mutex_unlock(&sess->codec_lock);
+	if (!hevc)
 		return 0;
-	}
 
+	mutex_lock(&hevc->lock);
 	ret = hevc->frames_num;
-	mutex_unlock(&sess->codec_lock);
+	mutex_unlock(&hevc->lock);
 
 	return ret;
 }
@@ -801,6 +801,7 @@ static int codec_hevc_start(struct amvdec_session *sess)
 
 	amvdec_write_dos(core, HEVC_AUX_ADR, hevc->aux_paddr);
 	amvdec_write_dos(core, HEVC_AUX_DATA_SIZE, (((SIZE_AUX) >> 4) << 16) | 0);
+	mutex_init(&hevc->lock);
 	sess->priv = hevc;
 
 	return 0;
@@ -829,7 +830,7 @@ static int codec_hevc_stop(struct amvdec_session *sess)
 	struct codec_hevc *hevc = sess->priv;
 	struct amvdec_core *core = sess->core;
 
-	mutex_lock(&sess->codec_lock);
+	mutex_lock(&hevc->lock);
 	codec_hevc_flush_output(sess);
 
 	if (hevc->workspace_vaddr)
@@ -847,7 +848,8 @@ static int codec_hevc_stop(struct amvdec_session *sess)
 				  hevc->aux_vaddr, hevc->aux_paddr);
 
 	codec_hevc_free_fbc_buffers(sess);
-	mutex_unlock(&sess->codec_lock);
+	mutex_unlock(&hevc->lock);
+	mutex_destroy(&hevc->lock);
 
 	return 0;
 }
@@ -1457,11 +1459,11 @@ static irqreturn_t codec_hevc_threaded_isr(struct amvdec_session *sess)
 	struct amvdec_core *core = sess->core;
 	struct codec_hevc *hevc;
 
-	mutex_lock(&sess->codec_lock);
 	hevc = sess->priv;
 	if (!hevc)
-		goto unlock;
+		return IRQ_HANDLED;
 
+	mutex_lock(&hevc->lock);
 	if (hevc->dec_status != HEVC_SLICE_SEGMENT_DONE) {
 		dev_err(core->dev_dec, "Unrecognized dec_status: %08X\n",
 			hevc->dec_status);
@@ -1491,7 +1493,7 @@ static irqreturn_t codec_hevc_threaded_isr(struct amvdec_session *sess)
 		amvdec_abort(sess);
 
 unlock:
-	mutex_unlock(&sess->codec_lock);
+	mutex_unlock(&hevc->lock);
 	return IRQ_HANDLED;
 }
 

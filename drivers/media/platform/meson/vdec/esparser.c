@@ -16,6 +16,7 @@
 #include <media/videobuf2-dma-contig.h>
 #include <media/v4l2-mem2mem.h>
 
+#include "dos_regs.h"
 #include "esparser.h"
 #include "vdec_helpers.h"
 
@@ -47,10 +48,6 @@
 #define PARSER_VIDEO_START_PTR	0x80
 #define PARSER_VIDEO_END_PTR	0x84
 #define PARSER_VIDEO_HOLE	0x90
-
-/* STBUF regs */
-#define VLD_MEM_VIFIFO_BUF_CNTL 0x3120
-	#define MEM_BUFCTRL_MANUAL	BIT(1)
 
 #define SEARCH_PATTERN_LEN	512
 #define MIN_PACKET_SIZE		(4 * SZ_1K)

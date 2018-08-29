@@ -174,7 +174,7 @@ static int set_canvas_nv12m(struct amvdec_session *sess,
 }
 
 int amvdec_set_canvases(struct amvdec_session *sess,
-				u32 reg_base[], u32 reg_num[])
+			u32 reg_base[], u32 reg_num[])
 {
 	struct v4l2_m2m_buffer *buf;
 	u32 pixfmt = sess->pixfmt_cap;
@@ -304,9 +304,6 @@ amvdec_dst_buf_done_idx(struct amvdec_session *sess, u32 buf_idx, u32 field)
 }
 EXPORT_SYMBOL_GPL(amvdec_dst_buf_done_idx);
 
-/* Userspace will queue src buffer timestamps that are not
- * in chronological order. Rearrange them here.
- */
 void amvdec_add_ts_reorder(struct amvdec_session *sess, u64 ts)
 {
 	struct amvdec_timestamp *new_ts, *tmp;

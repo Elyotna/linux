@@ -13,7 +13,7 @@
 /* Offset substracted by the firmware from the workspace paddr */
 #define WORKSPACE_OFFSET	(5 * SZ_1K)
 
-/* map FW registers to known MPEG1/2 functions */
+/* map firmware registers to known MPEG1/2 functions */
 #define MREG_SEQ_INFO		AV_SCRATCH_4
 #define MREG_PIC_INFO		AV_SCRATCH_5
 #define MREG_PIC_WIDTH		AV_SCRATCH_6
@@ -123,14 +123,18 @@ static irqreturn_t codec_mpeg12_threaded_isr(struct amvdec_session *sess)
 	amvdec_write_dos(core, ASSIST_MBOX1_CLR_REG, 1);
 
 	reg = amvdec_read_dos(core, MREG_FATAL_ERROR);
-	if (reg == 1)
-		dev_err(core->dev, "MPEG12 fatal error\n");
+	if (reg == 1) {
+		dev_err(core->dev, "MPEG1/2 fatal error\n");
+		amvdec_abort(sess);
+		return IRQ_HANDLED;
+	}
 
 	reg = amvdec_read_dos(core, MREG_BUFFEROUT);
 	if (!reg)
 		return IRQ_HANDLED;
 
-	if ((reg >> 16) & 0xfe)
+	/* Unclear what this means */
+	if (reg & GENMASK(31, 7))
 		goto end;
 
 	pic_info = amvdec_read_dos(core, MREG_PIC_INFO);
