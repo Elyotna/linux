@@ -71,7 +71,6 @@ static int codec_mpeg12_start(struct amvdec_session *sess) {
 		goto free_workspace;
 
 	amvdec_write_dos(core, POWER_CTL_VLD, BIT(4));
-
 	amvdec_write_dos(core, MREG_CO_MV_START,
 			 mpeg12->workspace_paddr + WORKSPACE_OFFSET);
 
@@ -85,6 +84,8 @@ static int codec_mpeg12_start(struct amvdec_session *sess) {
 	amvdec_write_dos(core, MREG_ERROR_COUNT, 0);
 	amvdec_write_dos(core, MREG_FATAL_ERROR, 0);
 	amvdec_write_dos(core, MREG_WAIT_BUFFER, 0);
+
+	sess->keyframe_found = 1;
 	sess->priv = mpeg12;
 
 	return 0;
@@ -121,7 +122,6 @@ static irqreturn_t codec_mpeg12_threaded_isr(struct amvdec_session *sess)
 	u32 field = V4L2_FIELD_NONE;
 
 	amvdec_write_dos(core, ASSIST_MBOX1_CLR_REG, 1);
-
 	reg = amvdec_read_dos(core, MREG_FATAL_ERROR);
 	if (reg == 1) {
 		dev_err(core->dev, "MPEG1/2 fatal error\n");
@@ -134,13 +134,11 @@ static irqreturn_t codec_mpeg12_threaded_isr(struct amvdec_session *sess)
 		return IRQ_HANDLED;
 
 	/* Unclear what this means */
-	if (reg & GENMASK(31, 7))
+	if ((reg & GENMASK(23, 17)) == GENMASK(23, 17))
 		goto end;
 
 	pic_info = amvdec_read_dos(core, MREG_PIC_INFO);
 	is_progressive = pic_info & PICINFO_PROG;
-
-	sess->keyframe_found = 1;
 
 	if (!is_progressive)
 		field = (pic_info & PICINFO_TOP_FIRST) ?
