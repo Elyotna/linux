@@ -321,8 +321,6 @@ static void dst_buf_done(struct amvdec_session *sess,
 	vbuf->vb2_buf.timestamp = timestamp;
 	vbuf->sequence = sess->sequence_cap++;
 
-	atomic_dec(&sess->esparser_queued_bufs);
-
 	if (sess->should_stop && list_empty(&sess->timestamps)) {
 		const struct v4l2_event ev = { .type = V4L2_EVENT_EOS };
 
@@ -367,6 +365,7 @@ void amvdec_dst_buf_done(struct amvdec_session *sess,
 	spin_unlock_irqrestore(&sess->ts_spinlock, flags);
 
 	dst_buf_done(sess, vbuf, field, timestamp);
+	atomic_dec(&sess->esparser_queued_bufs);
 }
 EXPORT_SYMBOL_GPL(amvdec_dst_buf_done);
 
@@ -422,6 +421,8 @@ static void amvdec_dst_buf_done_offset(struct amvdec_session *sess,
 	spin_unlock_irqrestore(&sess->ts_spinlock, flags);
 
 	dst_buf_done(sess, vbuf, field, timestamp);
+	if (match)
+		atomic_dec(&sess->esparser_queued_bufs);
 }
 
 void amvdec_dst_buf_done_idx(struct amvdec_session *sess,
