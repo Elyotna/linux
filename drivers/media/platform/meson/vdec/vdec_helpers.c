@@ -252,27 +252,6 @@ unlock:
 }
 EXPORT_SYMBOL_GPL(amvdec_add_ts_reorder);
 
-static void amvdec_rm_first_ts(struct amvdec_session *sess)
-{
-	unsigned long flags;
-	struct amvdec_buffer *tmp;
-	struct device *dev = sess->core->dev_dec;
-
-	spin_lock_irqsave(&sess->ts_spinlock, flags);
-	if (list_empty(&sess->timestamps)) {
-		dev_err(dev, "Can't rm first timestamp: list empty\n");
-		goto unlock;
-	}
-
-	tmp = list_first_entry(&sess->timestamps, struct amvdec_buffer, list);
-	list_del(&tmp->list);
-	kfree(tmp);
-	atomic_dec(&sess->esparser_queued_bufs);
-
-unlock:
-	spin_unlock_irqrestore(&sess->ts_spinlock, flags);
-}
-
 void amvdec_remove_ts(struct amvdec_session *sess, u64 ts)
 {
 	struct amvdec_timestamp *tmp;
@@ -436,7 +415,6 @@ void amvdec_dst_buf_done_idx(struct amvdec_session *sess,
 		dev_err(dev,
 			"Buffer %u done but it doesn't exist in m2m_ctx\n",
 			buf_idx);
-		amvdec_rm_first_ts(sess);
 		return;
 	}
 
