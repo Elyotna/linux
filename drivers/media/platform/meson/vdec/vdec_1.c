@@ -208,6 +208,8 @@ static int vdec_1_start(struct amvdec_session *sess)
 	/* Enable 2-plane output */
 	if (sess->pixfmt_cap == V4L2_PIX_FMT_NV12M)
 		amvdec_write_dos_bits(core, MDEC_PIC_DC_CTRL, BIT(17));
+	else
+		amvdec_clear_dos_bits(core, MDEC_PIC_DC_CTRL, BIT(17));
 
 	/* Enable firmware processor */
 	amvdec_write_dos(core, MPSR, 1);

@@ -75,7 +75,7 @@ static const struct amvdec_format vdec_formats_gxbb[] = {
 		.vdec_ops = &vdec_1_ops,
 		.codec_ops = &codec_h264_ops,
 		.firmware_path = "meson/gxbb/vh264_mc",
-		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, V4L2_PIX_FMT_YUV420M, 0 },
+		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, 0 },
 	}, {
 		.pixfmt = V4L2_PIX_FMT_MPEG1,
 		.min_buffers = 8,
@@ -159,7 +159,7 @@ static const struct amvdec_format vdec_formats_gxl[] = {
 		.vdec_ops = &vdec_1_ops,
 		.codec_ops = &codec_h264_ops,
 		.firmware_path = "meson/gxl/vh264_mc",
-		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, V4L2_PIX_FMT_YUV420M, 0 },
+		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, 0 },
 	}, {
 		.pixfmt = V4L2_PIX_FMT_MPEG1,
 		.min_buffers = 8,
@@ -243,7 +243,7 @@ static const struct amvdec_format vdec_formats_gxm[] = {
 		.vdec_ops = &vdec_1_ops,
 		.codec_ops = &codec_h264_ops,
 		.firmware_path = "meson/gxm/vh264_mc",
-		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, V4L2_PIX_FMT_YUV420M, 0 },
+		.pixfmts_cap = { V4L2_PIX_FMT_NV12M, 0 },
 	}, {
 		.pixfmt = V4L2_PIX_FMT_MPEG1,
 		.min_buffers = 8,
