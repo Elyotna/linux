@@ -225,6 +225,8 @@ static int vdec_queue_setup(struct vb2_queue *q,
 		}
 		*num_buffers = min(max(*num_buffers, fmt_out->min_buffers),
 				   fmt_out->max_buffers);
+		/* The HW needs all buffers to be configured during startup */
+		q->min_buffers_needed = *num_buffers;
 		break;
 	default:
 		return -EINVAL;
@@ -258,7 +260,7 @@ static int vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 	struct vb2_v4l2_buffer *buf;
 	int ret;
 
-	if (core->cur_sess) {
+	if (core->cur_sess && core->cur_sess != sess) {
 		ret = -EBUSY;
 		goto bufs_done;
 	}
