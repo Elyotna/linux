@@ -454,11 +454,9 @@ int amvdec_set_resolution(struct amvdec_session *sess, u32 width, u32 height)
 		.type = V4L2_EVENT_SOURCE_CHANGE,
 		.u.src_change.changes = V4L2_EVENT_SRC_CH_RESOLUTION };
 
-	if (width == ALIGN(sess->width, 16) &&
-	    height == ALIGN(sess->height, 16))
-		return 0;
-
 	dev_dbg(sess->core->dev, "Res. changed (%ux%u)\n", width, height);
+	if (height == 1088)
+		height = 1080;
 	sess->width = width;
 	sess->height = height;
 	v4l2_event_queue_fh(&sess->fh, &ev);
