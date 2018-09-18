@@ -30,11 +30,15 @@ struct amvdec_buffer {
  * @list: used to make lists out of this struct
  * @ts: timestamp
  * @offset: offset in the VIFIFO where the associated packet was written
+ * @sequence_out: OUTPUT sequence number of this timestamp's packet
+ * @processed: whether this timestamp's pkt has been processed by the decoder
  */
 struct amvdec_timestamp {
 	struct list_head list;
 	u64 ts;
 	s32 offset;
+	unsigned int sequence_out;
+	int processed;
 };
 
 struct amvdec_session;
@@ -222,7 +226,7 @@ struct amvdec_session {
 
 	unsigned int streamon_cap, streamon_out;
 	unsigned int running;
-	unsigned int sequence_cap;
+	unsigned int sequence_cap, sequence_out;
 	unsigned int should_stop;
 	unsigned int keyframe_found;
 

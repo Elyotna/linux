@@ -230,9 +230,10 @@ void amvdec_add_ts_reorder(struct amvdec_session *sess, u64 ts, s32 offset)
 	struct amvdec_timestamp *new_ts, *tmp;
 	unsigned long flags;
 
-	new_ts = kmalloc(sizeof(*new_ts), GFP_KERNEL);
+	new_ts = kzalloc(sizeof(*new_ts), GFP_KERNEL);
 	new_ts->ts = ts;
 	new_ts->offset = offset;
+	new_ts->sequence_out = sess->sequence_out++;
 
 	spin_lock_irqsave(&sess->ts_spinlock, flags);
 
@@ -383,26 +384,34 @@ static void amvdec_dst_buf_done_offset(struct amvdec_session *sess,
 		 * Also handle the special case where the vififo wraps around,
 		 * leading to a big negative value
 		 */
-		/*if (delta > 0 || delta < -1 * ((s32)sess->vififo_size / 2)) {
+		if (!tmp->processed && 
+		    (delta > 0 || delta < -1 * ((s32)sess->vififo_size / 2))) {
 			atomic_dec(&sess->esparser_queued_bufs);
+			tmp->processed = 1;
+		}
+
+		if (sess->sequence_cap > tmp->sequence_out &&
+		    sess->sequence_cap - tmp->sequence_out >= 8) {
 			list_del(&tmp->list);
 			kfree(tmp);
-		}*/
+		}
 	}
 
-	if (!match) {
+	if (!match)
 		dev_info(dev, "Buffer %u done but can't match offset (%08X)\n",
 			vbuf->vb2_buf.index, offset);
-	} else {
+	else
 		timestamp = match->ts;
+
+	dst_buf_done(sess, vbuf, field, timestamp);
+
+	if (match) {
+		if (!match->processed)
+			atomic_dec(&sess->esparser_queued_bufs);
 		list_del(&match->list);
 		kfree(match);
 	}
 	spin_unlock_irqrestore(&sess->ts_spinlock, flags);
-
-	dst_buf_done(sess, vbuf, field, timestamp);
-	if (match)
-		atomic_dec(&sess->esparser_queued_bufs);
 }
 
 void amvdec_dst_buf_done_idx(struct amvdec_session *sess,
