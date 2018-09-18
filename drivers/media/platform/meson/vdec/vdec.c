@@ -201,7 +201,8 @@ static int vdec_queue_setup(struct vb2_queue *q,
 
 	switch (q->type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
-		sizes[0] = amvdec_get_output_size(sess);
+		printk("q: %u - %u\n", sizes[0], output_size);
+		sizes[0] = 4000000;//output_size;
 		*num_planes = 1;
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
@@ -256,6 +257,7 @@ static void vdec_vb2_buf_queue(struct vb2_buffer *vb)
 static int vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 {
 	struct amvdec_session *sess = vb2_get_drv_priv(q);
+	struct amvdec_codec_ops *codec_ops = sess->fmt_out->codec_ops;
 	struct amvdec_core *core = sess->core;
 	struct vb2_v4l2_buffer *buf;
 	int ret;
@@ -273,6 +275,14 @@ static int vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 	if (!sess->streamon_out || !sess->streamon_cap)
 		return 0;
 
+	if (sess->running) {
+		if (codec_ops->resume &&
+		    q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+			codec_ops->resume(sess);
+
+		return 0;
+	}
+
 	sess->vififo_size = SIZE_VIFIFO;
 	sess->vififo_vaddr =
 		dma_alloc_coherent(sess->core->dev, sess->vififo_size,
@@ -289,6 +299,7 @@ static int vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 	sess->pixelaspect.denominator = 1;
 	atomic_set(&sess->esparser_queued_bufs, 0);
 
+	printk("start!\n");
 	ret = vdec_poweron(sess);
 	if (ret)
 		goto vififo_free;
@@ -299,6 +310,7 @@ static int vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 						   "vdec_recycle");
 
 	core->cur_sess = sess;
+	sess->running = 1;
 
 	return 0;
 
@@ -355,10 +367,12 @@ static void vdec_stop_streaming(struct vb2_queue *q)
 	struct amvdec_core *core = sess->core;
 	struct vb2_v4l2_buffer *buf;
 
-	if (sess->streamon_out && sess->streamon_cap) {
+	if (sess->running && (!sess->streamon_out || !sess->streamon_cap)) {
 		if (vdec_codec_needs_recycle(sess))
 			kthread_stop(sess->recycle_thread);
 
+		printk("stop!\n");
+		sess->running = 0;
 		vdec_poweroff(sess);
 		vdec_free_canvas(sess);
 		dma_free_coherent(sess->core->dev, sess->vififo_size,
@@ -376,8 +390,10 @@ static void vdec_stop_streaming(struct vb2_queue *q)
 
 		sess->streamon_out = 0;
 	} else {
-		while ((buf = v4l2_m2m_dst_buf_remove(sess->m2m_ctx)))
+		while ((buf = v4l2_m2m_dst_buf_remove(sess->m2m_ctx))) {
+			printk("done %u\n", buf->vb2_buf.index);
 			v4l2_m2m_buf_done(buf, VB2_BUF_STATE_ERROR);
+		}
 
 		sess->streamon_cap = 0;
 	}
@@ -391,6 +407,52 @@ static const struct vb2_ops vdec_vb2_ops = {
 	.wait_prepare = vb2_ops_wait_prepare,
 	.wait_finish = vb2_ops_wait_finish,
 };
+
+static int
+vdec_g_selection(struct file *file, void *fh, struct v4l2_selection *s)
+{
+	struct amvdec_session *sess =
+		container_of(file->private_data, struct amvdec_session, fh);
+
+	if (s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE &&
+	    s->type != V4L2_BUF_TYPE_VIDEO_OUTPUT)
+		return -EINVAL;
+
+	switch (s->target) {
+	case V4L2_SEL_TGT_CROP_BOUNDS:
+	case V4L2_SEL_TGT_CROP_DEFAULT:
+	case V4L2_SEL_TGT_CROP:
+		if (s->type != V4L2_BUF_TYPE_VIDEO_OUTPUT)
+			return -EINVAL;
+		s->r.width = sess->width;
+		s->r.height = sess->height;
+		printk("1: %ux%u\n", sess->width, sess->height);
+		break;
+	case V4L2_SEL_TGT_COMPOSE_BOUNDS:
+	case V4L2_SEL_TGT_COMPOSE_PADDED:
+		if (s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
+			return -EINVAL;
+		s->r.width = sess->width;
+		s->r.height = sess->height;
+		printk("2: %ux%u\n", sess->width, sess->height);
+		break;
+	case V4L2_SEL_TGT_COMPOSE_DEFAULT:
+	case V4L2_SEL_TGT_COMPOSE:
+		if (s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
+			return -EINVAL;
+		s->r.width = sess->width;
+		s->r.height = sess->height;
+		printk("3: %ux%u\n", sess->width, sess->height);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	s->r.top = 0;
+	s->r.left = 0;
+
+	return 0;
+}
 
 static int
 vdec_querycap(struct file *file, void *fh, struct v4l2_capability *cap)
@@ -446,8 +508,10 @@ vdec_try_fmt_common(struct amvdec_session *sess, u32 size,
 			fmt_out = find_format(fmts, size, pixmp->pixelformat);
 		}
 
-		pfmt[0].sizeimage =
-			get_output_size(pixmp->width, pixmp->height);
+		printk("%u - %u\n", pfmt[0].sizeimage, get_output_size(pixmp->width, pixmp->height));
+		if (pfmt[0].sizeimage < get_output_size(pixmp->width, pixmp->height))
+			pfmt[0].sizeimage =
+				get_output_size(pixmp->width, pixmp->height);
 		pfmt[0].bytesperline = 0;
 		pixmp->num_planes = 1;
 	} else if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
@@ -695,6 +759,8 @@ static int vdec_subscribe_event(struct v4l2_fh *fh,
 	switch (sub->type) {
 	case V4L2_EVENT_EOS:
 		return v4l2_event_subscribe(fh, sub, 2, NULL);
+	case V4L2_EVENT_SOURCE_CHANGE:
+		return v4l2_src_change_event_subscribe(fh, sub);
 	default:
 		return -EINVAL;
 	}
@@ -723,6 +789,7 @@ static const struct v4l2_ioctl_ops vdec_ioctl_ops = {
 	.vidioc_g_fmt_vid_out_mplane = vdec_g_fmt,
 	.vidioc_try_fmt_vid_cap_mplane = vdec_try_fmt,
 	.vidioc_try_fmt_vid_out_mplane = vdec_try_fmt,
+	.vidioc_g_selection = vdec_g_selection,
 	.vidioc_reqbufs = v4l2_m2m_ioctl_reqbufs,
 	.vidioc_querybuf = v4l2_m2m_ioctl_querybuf,
 	.vidioc_create_bufs = v4l2_m2m_ioctl_create_bufs,
@@ -738,6 +805,26 @@ static const struct v4l2_ioctl_ops vdec_ioctl_ops = {
 	.vidioc_try_decoder_cmd = vdec_try_decoder_cmd,
 	.vidioc_decoder_cmd = vdec_decoder_cmd,
 	.vidioc_cropcap = vdec_cropcap,
+};
+
+static int vdec_op_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct amvdec_session *sess =
+	      container_of(ctrl->handler, struct amvdec_session, ctrl_handler);
+
+	switch (ctrl->id) {
+	case V4L2_CID_MIN_BUFFERS_FOR_CAPTURE:
+		ctrl->val = sess->fmt_out->min_buffers;
+		break;
+	default:
+		return -EINVAL;
+	};
+
+	return 0;
+}
+
+static const struct v4l2_ctrl_ops vdec_ctrl_ops = {
+	.g_volatile_ctrl = vdec_op_g_volatile_ctrl,
 };
 
 static int m2m_queue_init(void *priv, struct vb2_queue *src_vq,
@@ -785,6 +872,7 @@ static int vdec_open(struct file *file)
 	struct device *dev = core->dev;
 	const struct amvdec_format *formats = core->platform->formats;
 	struct amvdec_session *sess;
+	struct v4l2_ctrl *ctrl;
 	int ret;
 
 	sess = kzalloc(sizeof(*sess), GFP_KERNEL);
@@ -807,6 +895,21 @@ static int vdec_open(struct file *file)
 		goto err_m2m_release;
 	}
 
+	ret = v4l2_ctrl_handler_init(&sess->ctrl_handler, 1);
+	if (ret)
+		goto err_m2m_release;
+
+	ctrl = v4l2_ctrl_new_std(&sess->ctrl_handler, &vdec_ctrl_ops,
+		V4L2_CID_MIN_BUFFERS_FOR_CAPTURE, 1, 32, 1, 1);
+	if (ctrl)
+		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;
+
+	ret = sess->ctrl_handler.error;
+	if (ret) {
+		v4l2_ctrl_handler_free(&sess->ctrl_handler);
+		goto err_m2m_release;
+	}
+
 	sess->pixfmt_cap = formats[0].pixfmts_cap[0];
 	sess->fmt_out = &formats[0];
 	sess->width = 1280;
@@ -822,6 +925,7 @@ static int vdec_open(struct file *file)
 	spin_lock_init(&sess->ts_spinlock);
 
 	v4l2_fh_init(&sess->fh, core->vdev_dec);
+	sess->fh.ctrl_handler = &sess->ctrl_handler;
 	v4l2_fh_add(&sess->fh);
 	sess->fh.m2m_ctx = sess->m2m_ctx;
 	file->private_data = &sess->fh;

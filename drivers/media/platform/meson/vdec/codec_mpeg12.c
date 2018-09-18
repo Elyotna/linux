@@ -86,7 +86,7 @@ static int codec_mpeg12_start(struct amvdec_session *sess)
 	amvdec_write_dos(core, M4_CONTROL_REG, 0);
 	amvdec_write_dos(core, MREG_BUFFERIN, 0);
 	amvdec_write_dos(core, MREG_BUFFEROUT, 0);
-	amvdec_write_dos(core, MREG_CMD, (sess->width << 16) | sess->height);
+	amvdec_write_dos(core, MREG_CMD, 0);
 	amvdec_write_dos(core, MREG_ERROR_COUNT, 0);
 	amvdec_write_dos(core, MREG_FATAL_ERROR, 0);
 	amvdec_write_dos(core, MREG_WAIT_BUFFER, 0);
@@ -141,6 +141,16 @@ static void codec_mpeg12_update_dar(struct amvdec_session *sess)
 	};
 }
 
+static void codec_mpeg12_check_resolution(struct amvdec_session *sess)
+{
+	struct amvdec_core *core = sess->core;
+	u32 width = amvdec_read_dos(core, MREG_PIC_WIDTH);
+	u32 height = amvdec_read_dos(core, MREG_PIC_HEIGHT);
+
+	amvdec_set_resolution(sess, width, height);
+	codec_mpeg12_update_dar(sess);
+}
+
 static irqreturn_t codec_mpeg12_threaded_isr(struct amvdec_session *sess)
 {
 	struct amvdec_core *core = sess->core;
@@ -175,7 +185,8 @@ static irqreturn_t codec_mpeg12_threaded_isr(struct amvdec_session *sess)
 			V4L2_FIELD_INTERLACED_TB :
 			V4L2_FIELD_INTERLACED_BT;
 
-	codec_mpeg12_update_dar(sess);
+	codec_mpeg12_check_resolution(sess);
+
 	buffer_index = ((reg & 0xf) - 1) & 7;
 	offset = amvdec_read_dos(core, MREG_FRAME_OFFSET);
 	amvdec_dst_buf_done_idx(sess, buffer_index, offset, field);

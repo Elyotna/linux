@@ -126,6 +126,7 @@ struct amvdec_codec_ops {
 	int (*can_recycle)(struct amvdec_core *core);
 	void (*recycle)(struct amvdec_core *core, u32 buf_idx);
 	void (*drain)(struct amvdec_session *sess);
+	void (*resume)(struct amvdec_session *sess);
 	irqreturn_t (*isr)(struct amvdec_session *sess);
 	irqreturn_t (*threaded_isr)(struct amvdec_session *sess);
 };
@@ -201,6 +202,7 @@ struct amvdec_session {
 	struct v4l2_fh fh;
 	struct v4l2_m2m_dev *m2m_dev;
 	struct v4l2_m2m_ctx *m2m_ctx;
+	struct v4l2_ctrl_handler ctrl_handler;
 	struct mutex lock;
 
 	const struct amvdec_format *fmt_out;
@@ -219,6 +221,7 @@ struct amvdec_session {
 	struct work_struct esparser_queue_work;
 
 	unsigned int streamon_cap, streamon_out;
+	unsigned int running;
 	unsigned int sequence_cap;
 	unsigned int should_stop;
 	unsigned int keyframe_found;

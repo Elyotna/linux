@@ -177,6 +177,7 @@ static int vdec_1_start(struct amvdec_session *sess)
 
 	/* Reset VDEC1 */
 	amvdec_write_dos(core, DOS_SW_RESET0, 0xfffffffc);
+	udelay(4);
 	amvdec_write_dos(core, DOS_SW_RESET0, 0x00000000);
 
 	amvdec_write_dos(core, DOS_GCLK_EN0, 0x3ff);

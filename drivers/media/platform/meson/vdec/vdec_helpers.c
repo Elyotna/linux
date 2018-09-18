@@ -189,6 +189,7 @@ int amvdec_set_canvases(struct amvdec_session *sess,
 	int ret;
 
 	v4l2_m2m_for_each_dst_buf(sess->m2m_ctx, buf) {
+		printk("pouet\n");
 		if (!reg_base[reg_base_cur])
 			return -EINVAL;
 
@@ -382,15 +383,15 @@ static void amvdec_dst_buf_done_offset(struct amvdec_session *sess,
 		 * Also handle the special case where the vififo wraps around,
 		 * leading to a big negative value
 		 */
-		if (delta > 0 || delta < -1 * ((s32)sess->vififo_size / 2)) {
+		/*if (delta > 0 || delta < -1 * ((s32)sess->vififo_size / 2)) {
 			atomic_dec(&sess->esparser_queued_bufs);
 			list_del(&tmp->list);
 			kfree(tmp);
-		}
+		}*/
 	}
 
 	if (!match) {
-		dev_dbg(dev, "Buffer %u done but can't match offset (%08X)\n",
+		dev_info(dev, "Buffer %u done but can't match offset (%08X)\n",
 			vbuf->vb2_buf.index, offset);
 	} else {
 		timestamp = match->ts;
@@ -437,6 +438,25 @@ void amvdec_set_par_from_dar(struct amvdec_session *sess,
 	sess->pixelaspect.denominator /= div;
 }
 EXPORT_SYMBOL_GPL(amvdec_set_par_from_dar);
+
+int amvdec_set_resolution(struct amvdec_session *sess, u32 width, u32 height)
+{
+	static const struct v4l2_event ev = {
+		.type = V4L2_EVENT_SOURCE_CHANGE,
+		.u.src_change.changes = V4L2_EVENT_SRC_CH_RESOLUTION };
+
+	if (width == ALIGN(sess->width, 16) &&
+	    height == ALIGN(sess->height, 16))
+		return 0;
+
+	dev_dbg(sess->core->dev, "Res. changed (%ux%u)\n", width, height);
+	sess->width = width;
+	sess->height = height;
+	v4l2_event_queue_fh(&sess->fh, &ev);
+
+	return 1;
+}
+EXPORT_SYMBOL_GPL(amvdec_set_resolution);
 
 void amvdec_abort(struct amvdec_session *sess)
 {

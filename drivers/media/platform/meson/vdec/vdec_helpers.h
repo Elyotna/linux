@@ -47,6 +47,7 @@ void amvdec_remove_ts(struct amvdec_session *sess, u64 ts);
 
 void amvdec_set_par_from_dar(struct amvdec_session *sess,
 			     u32 dar_num, u32 dar_den);
+int amvdec_set_resolution(struct amvdec_session *sess, u32 width, u32 height);
 
 void amvdec_abort(struct amvdec_session *sess);
 #endif
