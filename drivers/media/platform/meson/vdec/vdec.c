@@ -254,6 +254,16 @@ static void vdec_vb2_buf_queue(struct vb2_buffer *vb)
 	schedule_work(&sess->esparser_queue_work);
 }
 
+static void vdec_free_canvas(struct amvdec_session *sess)
+{
+	int i;
+
+	for (i = 0; i < sess->canvas_num; ++i)
+		meson_canvas_free(sess->core->canvas, sess->canvas_alloc[i]);
+
+	sess->canvas_num = 0;
+}
+
 static int vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 {
 	struct amvdec_session *sess = vb2_get_drv_priv(q);
@@ -276,9 +286,12 @@ static int vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 		return 0;
 
 	if (sess->running) {
+		/* User restarted the CAPTURE queue only */
 		if (codec_ops->resume &&
-		    q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+		    q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+			vdec_free_canvas(sess);
 			codec_ops->resume(sess);
+		}
 
 		return 0;
 	}
@@ -329,16 +342,6 @@ bufs_done:
 		sess->streamon_cap = 0;
 
 	return ret;
-}
-
-static void vdec_free_canvas(struct amvdec_session *sess)
-{
-	int i;
-
-	for (i = 0; i < sess->canvas_num; ++i)
-		meson_canvas_free(sess->core->canvas, sess->canvas_alloc[i]);
-
-	sess->canvas_num = 0;
 }
 
 static void vdec_reset_timestamps(struct amvdec_session *sess)
