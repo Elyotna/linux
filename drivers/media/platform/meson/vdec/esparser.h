@@ -19,7 +19,7 @@ int esparser_power_up(struct amvdec_session *sess);
  *
  * @core vdec core struct
  */
-int esparser_queue_eos(struct amvdec_core *core);
+int esparser_queue_eos(struct amvdec_core *core, const u8 *data, u32 len);
 
 /**
  * esparser_queue_all_src() - work handler that writes as many src buffers

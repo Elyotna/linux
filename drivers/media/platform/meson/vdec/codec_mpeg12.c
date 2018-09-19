@@ -41,6 +41,14 @@ struct codec_mpeg12 {
 	dma_addr_t workspace_paddr;
 };
 
+static const u8 eos_sequence[SZ_1K] = { 0x00, 0x00, 0x01, 0xB7 };
+
+static const u8 *codec_mpeg12_eos_sequence(u32 *len)
+{
+	*len = ARRAY_SIZE(eos_sequence);
+	return eos_sequence;
+}
+
 static int codec_mpeg12_can_recycle(struct amvdec_core *core)
 {
 	return !amvdec_read_dos(core, MREG_BUFFERIN);
@@ -197,4 +205,5 @@ struct amvdec_codec_ops codec_mpeg12_ops = {
 	.threaded_isr = codec_mpeg12_threaded_isr,
 	.can_recycle = codec_mpeg12_can_recycle,
 	.recycle = codec_mpeg12_recycle,
+	.eos_sequence = codec_mpeg12_eos_sequence,
 };

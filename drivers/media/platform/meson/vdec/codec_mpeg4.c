@@ -31,6 +31,15 @@ struct codec_mpeg4 {
 	dma_addr_t workspace_paddr;
 };
 
+static const u8 eos_sequence[SZ_1K] = { 0x00, 0x00, 0x01, 0xB7 };
+
+static const u8 *codec_mpeg4_eos_sequence(u32 *len)
+{
+	*len = ARRAY_SIZE(eos_sequence);
+	return eos_sequence;
+}
+
+
 static int codec_mpeg4_can_recycle(struct amvdec_core *core)
 {
 	return !amvdec_read_dos(core, MREG_BUFFERIN);
@@ -136,4 +145,5 @@ struct amvdec_codec_ops codec_mpeg4_ops = {
 	.isr = codec_mpeg4_isr,
 	.can_recycle = codec_mpeg4_can_recycle,
 	.recycle = codec_mpeg4_recycle,
+	.eos_sequence = codec_mpeg4_eos_sequence,
 };

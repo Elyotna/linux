@@ -669,6 +669,7 @@ vdec_decoder_cmd(struct file *file, void *fh, struct v4l2_decoder_cmd *cmd)
 	struct amvdec_session *sess =
 		container_of(file->private_data, struct amvdec_session, fh);
 	struct amvdec_codec_ops *codec_ops = sess->fmt_out->codec_ops;
+	struct device *dev = sess->core->dev;
 	int ret;
 
 	ret = vdec_try_decoder_cmd(file, fh, cmd);
@@ -678,15 +679,19 @@ vdec_decoder_cmd(struct file *file, void *fh, struct v4l2_decoder_cmd *cmd)
 	if (!(sess->streamon_out & sess->streamon_cap))
 		return 0;
 
-	dev_dbg(sess->core->dev, "Received V4L2_DEC_CMD_STOP\n");
+	dev_dbg(dev, "Received V4L2_DEC_CMD_STOP\n");
 	sess->should_stop = 1;
 
 	vdec_wait_inactive(sess);
 
-	if (codec_ops->drain)
+	if (codec_ops->drain) {
 		codec_ops->drain(sess);
-	else
-		esparser_queue_eos(sess->core);
+	} else if (codec_ops->eos_sequence) {
+		u32 len;
+		const u8 *data = codec_ops->eos_sequence(&len);
+
+		esparser_queue_eos(sess->core, data, len);
+	}
 
 	return ret;
 }
