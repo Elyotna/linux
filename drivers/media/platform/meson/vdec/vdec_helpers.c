@@ -414,7 +414,7 @@ void amvdec_dst_buf_done_idx(struct amvdec_session *sess,
 		return;
 	}
 
-	if (offset >= 0)
+	if (offset != -1)
 		amvdec_dst_buf_done_offset(sess, vbuf, offset, field);
 	else
 		amvdec_dst_buf_done(sess, vbuf, field);
