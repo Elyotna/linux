@@ -300,7 +300,8 @@ static void dst_buf_done(struct amvdec_session *sess,
 	vbuf->vb2_buf.timestamp = timestamp;
 	vbuf->sequence = sess->sequence_cap++;
 
-	if (sess->should_stop && list_empty(&sess->timestamps)) {
+	if (sess->should_stop &&
+	    atomic_read(&sess->esparser_queued_bufs) <= 2) {
 		const struct v4l2_event ev = { .type = V4L2_EVENT_EOS };
 
 		dev_dbg(dev, "Signaling EOS\n");
