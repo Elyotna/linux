@@ -183,15 +183,9 @@ stop:
 	return ret;
 }
 
-static int vdec_hevc_use_offsets(void)
-{
-	return 0;
-}
-
 struct amvdec_ops vdec_hevc_ops = {
 	.start = vdec_hevc_start,
 	.stop = vdec_hevc_stop,
 	.conf_esparser = vdec_hevc_conf_esparser,
 	.vififo_level = vdec_hevc_vififo_level,
-	.use_offsets = vdec_hevc_use_offsets,
 };

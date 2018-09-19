@@ -31,7 +31,7 @@ u32 amvdec_am21c_head_size(u32 width, u32 height);
 u32 amvdec_am21c_size(u32 width, u32 height);
 
 void amvdec_dst_buf_done_idx(struct amvdec_session *sess, u32 buf_idx,
-			     s32 offset, u32 field);
+			     u32 offset, u32 field);
 void amvdec_dst_buf_done(struct amvdec_session *sess,
 			 struct vb2_v4l2_buffer *vbuf, u32 field);
 
@@ -42,7 +42,7 @@ void amvdec_dst_buf_done(struct amvdec_session *sess,
  * @ts: timestamp to add
  * @offset: offset in the VIFIFO where the associated packet was written
  */
-void amvdec_add_ts_reorder(struct amvdec_session *sess, u64 ts, s32 offset);
+void amvdec_add_ts_reorder(struct amvdec_session *sess, u64 ts, u32 offset);
 void amvdec_remove_ts(struct amvdec_session *sess, u64 ts);
 
 void amvdec_set_par_from_dar(struct amvdec_session *sess,

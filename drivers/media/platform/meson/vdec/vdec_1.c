@@ -223,15 +223,9 @@ stop:
 	return ret;
 }
 
-static int vdec_1_use_offsets(void)
-{
-	return 1;
-}
-
 struct amvdec_ops vdec_1_ops = {
 	.start = vdec_1_start,
 	.stop = vdec_1_stop,
 	.conf_esparser = vdec_1_conf_esparser,
 	.vififo_level = vdec_1_vififo_level,
-	.use_offsets = vdec_1_use_offsets,
 };

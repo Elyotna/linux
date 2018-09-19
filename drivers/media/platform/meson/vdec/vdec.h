@@ -34,7 +34,7 @@ struct amvdec_buffer {
 struct amvdec_timestamp {
 	struct list_head list;
 	u64 ts;
-	s32 offset;
+	u32 offset;
 };
 
 struct amvdec_session;
@@ -99,7 +99,6 @@ struct amvdec_ops {
 	int (*stop)(struct amvdec_session *sess);
 	void (*conf_esparser)(struct amvdec_session *sess);
 	u32 (*vififo_level)(struct amvdec_session *sess);
-	int (*use_offsets)(void);
 };
 
 /**
@@ -238,6 +237,8 @@ struct amvdec_session {
 	spinlock_t ts_spinlock;
 
 	u64 last_irq_jiffies;
+	u32 last_offset;
+	u32 wrap_count;
 
 	void *priv;
 };

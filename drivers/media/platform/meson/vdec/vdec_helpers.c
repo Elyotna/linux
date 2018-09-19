@@ -224,7 +224,7 @@ int amvdec_set_canvases(struct amvdec_session *sess,
 }
 EXPORT_SYMBOL_GPL(amvdec_set_canvases);
 
-void amvdec_add_ts_reorder(struct amvdec_session *sess, u64 ts, s32 offset)
+void amvdec_add_ts_reorder(struct amvdec_session *sess, u64 ts, u32 offset)
 {
 	struct amvdec_timestamp *new_ts, *tmp;
 	unsigned long flags;
@@ -350,7 +350,7 @@ EXPORT_SYMBOL_GPL(amvdec_dst_buf_done);
 
 static void amvdec_dst_buf_done_offset(struct amvdec_session *sess,
 				       struct vb2_v4l2_buffer *vbuf,
-				       s32 offset,
+				       u32 offset,
 				       u32 field)
 {
 	struct device *dev = sess->core->dev_dec;
@@ -359,14 +359,11 @@ static void amvdec_dst_buf_done_offset(struct amvdec_session *sess,
 	u64 timestamp = 0;
 	unsigned long flags;
 
-	/* codec offsets do not wrap around the vififo size */
-	offset %= sess->vififo_size;
-
 	spin_lock_irqsave(&sess->ts_spinlock, flags);
 
 	/* Look for our vififo offset to get the corresponding timestamp. */
 	list_for_each_entry_safe(tmp, n, &sess->timestamps, list) {
-		s32 delta = offset - tmp->offset;
+		s64 delta = (s64)offset - tmp->offset;
 
 		/* Offsets reported by codecs usually differ slightly,
 		 * so we need some wiggle room.
@@ -379,10 +376,8 @@ static void amvdec_dst_buf_done_offset(struct amvdec_session *sess,
 
 		/* Delete any timestamp entry that appears before our target
 		 * (not all src packets/timestamps lead to a frame)
-		 * Also handle the special case where the vififo wraps around,
-		 * leading to a big negative value
 		 */
-		if (delta > 0 || delta < -1 * ((s32)sess->vififo_size / 2)) {
+		if (delta > 0 || delta < -1 * (s32)sess->vififo_size) {
 			atomic_dec(&sess->esparser_queued_bufs);
 			list_del(&tmp->list);
 			kfree(tmp);
@@ -405,7 +400,7 @@ static void amvdec_dst_buf_done_offset(struct amvdec_session *sess,
 }
 
 void amvdec_dst_buf_done_idx(struct amvdec_session *sess,
-			     u32 buf_idx, s32 offset, u32 field)
+			     u32 buf_idx, u32 offset, u32 field)
 {
 	struct vb2_v4l2_buffer *vbuf;
 	struct device *dev = sess->core->dev_dec;

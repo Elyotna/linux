@@ -285,6 +285,8 @@ static int vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 
 	sess->should_stop = 0;
 	sess->keyframe_found = 0;
+	sess->last_offset = 0;
+	sess->wrap_count = 0;
 	sess->pixelaspect.numerator = 1;
 	sess->pixelaspect.denominator = 1;
 	atomic_set(&sess->esparser_queued_bufs, 0);

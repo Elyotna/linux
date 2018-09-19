@@ -277,11 +277,11 @@ static void codec_h264_set_param(struct amvdec_session *sess)
 /**
  * The offset is split in half in 2 different registers
  */
-static s32 get_offset_msb(struct amvdec_core *core, int frame_num)
+static u32 get_offset_msb(struct amvdec_core *core, int frame_num)
 {
 	int take_msb = frame_num % 2;
 	int reg_offset = (frame_num / 2) * 4;
-	s32 offset_msb = amvdec_read_dos(core, AV_SCRATCH_A + reg_offset);
+	u32 offset_msb = amvdec_read_dos(core, AV_SCRATCH_A + reg_offset);
 
 	if (take_msb)
 		return offset_msb & 0xffff0000;
@@ -309,7 +309,7 @@ static void codec_h264_frames_ready(struct amvdec_session *sess, u32 status)
 		u32 buffer_index = frame_status & BUF_IDX_MASK;
 		u32 pic_struct = (frame_status >> PIC_STRUCT_BIT) &
 				 PIC_STRUCT_MASK;
-		s32 offset = (frame_status >> OFFSET_BIT) & OFFSET_MASK;
+		u32 offset = (frame_status >> OFFSET_BIT) & OFFSET_MASK;
 		u32 field = V4L2_FIELD_NONE;
 
 		/* A buffer decode error means it was decoded,

@@ -149,7 +149,7 @@ static irqreturn_t codec_mpeg12_threaded_isr(struct amvdec_session *sess)
 	u32 is_progressive;
 	u32 buffer_index;
 	u32 field = V4L2_FIELD_NONE;
-	s32 offset;
+	u32 offset;
 
 	amvdec_write_dos(core, ASSIST_MBOX1_CLR_REG, 1);
 	reg = amvdec_read_dos(core, MREG_FATAL_ERROR);

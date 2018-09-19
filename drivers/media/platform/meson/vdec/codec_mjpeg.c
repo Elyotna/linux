@@ -115,7 +115,7 @@ static irqreturn_t codec_mjpeg_isr(struct amvdec_session *sess)
 	struct amvdec_core *core = sess->core;
 	u32 reg;
 	u32 buffer_index;
-	s32 offset;
+	u32 offset;
 
 	amvdec_write_dos(core, ASSIST_MBOX1_CLR_REG, 1);
 

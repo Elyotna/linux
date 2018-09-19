@@ -47,6 +47,7 @@
 #define PARSER_ES_CONTROL	0x5c
 #define PARSER_VIDEO_START_PTR	0x80
 #define PARSER_VIDEO_END_PTR	0x84
+#define PARSER_VIDEO_WP		0x88
 #define PARSER_VIDEO_HOLE	0x90
 
 #define SEARCH_PATTERN_LEN	512
@@ -216,6 +217,21 @@ int esparser_queue_eos(struct amvdec_core *core)
 	return ret;
 }
 
+static u32 esparser_get_offset(struct amvdec_session *sess)
+{
+	struct amvdec_core *core = sess->core;
+	u32 offset = amvdec_read_parser(core, PARSER_VIDEO_WP) -
+		     sess->vififo_paddr;
+
+	if (offset < sess->last_offset)
+		sess->wrap_count++;
+
+	sess->last_offset = offset;
+	offset += (sess->wrap_count * sess->vififo_size);
+
+	return offset;
+}
+
 static int
 esparser_queue(struct amvdec_session *sess, struct vb2_v4l2_buffer *vbuf)
 {
@@ -223,11 +239,10 @@ esparser_queue(struct amvdec_session *sess, struct vb2_v4l2_buffer *vbuf)
 	struct vb2_buffer *vb = &vbuf->vb2_buf;
 	struct amvdec_core *core = sess->core;
 	struct amvdec_codec_ops *codec_ops = sess->fmt_out->codec_ops;
-	struct amvdec_ops *vdec_ops = sess->fmt_out->vdec_ops;
 	u32 num_dst_bufs = 0;
 	u32 payload_size = vb2_get_plane_payload(vb, 0);
 	dma_addr_t phy = vb2_dma_contig_plane_dma_addr(vb, 0);
-	s32 offset = 0;
+	u32 offset;
 	u32 pad_size;
 
 	if (codec_ops->num_pending_bufs)
@@ -241,13 +256,11 @@ esparser_queue(struct amvdec_session *sess, struct vb2_v4l2_buffer *vbuf)
 
 	v4l2_m2m_src_buf_remove_by_buf(sess->m2m_ctx, vbuf);
 
-	if (vdec_ops->use_offsets())
-		offset = amvdec_read_dos(core, VLD_MEM_VIFIFO_WP) -
-			 sess->vififo_paddr;
+	offset = esparser_get_offset(sess);
 
 	amvdec_add_ts_reorder(sess, vb->timestamp, offset);
-	dev_dbg(core->dev, "esparser: Queuing ts = %llu pld_size = %u\n",
-		vb->timestamp, payload_size);
+	dev_dbg(core->dev, "esparser: ts = %llu pld_size = %u offset = %08X\n",
+		vb->timestamp, payload_size, offset);
 
 	pad_size = esparser_pad_start_code(vb);
 	ret = esparser_write_data(core, phy, payload_size + pad_size);
