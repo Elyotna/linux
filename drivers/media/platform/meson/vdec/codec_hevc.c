@@ -54,6 +54,8 @@
 #define INVALID_POC		0x80000000
 
 /* HEVC Workspace layout */
+#define MPRED_MV_BUF_SIZE 0x120000
+
 #define IPP_SIZE	0x4000
 #define SAO_ABV_SIZE	0x30000
 #define SAO_VB_SIZE	0x30000
@@ -69,7 +71,7 @@
 #define DBLK_DATA_SIZE	0x40000
 #define MMU_VBH_SIZE	0x5000
 #define MPRED_ABV_SIZE	0x8000
-#define MPRED_MV_SIZE	(0x120000 * MAX_REF_PIC_NUM)
+#define MPRED_MV_SIZE	(MPRED_MV_BUF_SIZE * MAX_REF_PIC_NUM)
 #define RPM_BUF_SIZE	0x100
 #define LMEM_SIZE	0xA00
 
@@ -1057,7 +1059,7 @@ static dma_addr_t codec_hevc_get_frame_mv_paddr(struct codec_hevc *hevc,
 						struct hevc_frame *frame)
 {
 	return hevc->workspace_paddr + MPRED_MV_OFFSET +
-		(frame->vbuf->vb2_buf.index * MPRED_MV_SIZE);
+		(frame->vbuf->vb2_buf.index * MPRED_MV_BUF_SIZE);
 }
 
 static void
