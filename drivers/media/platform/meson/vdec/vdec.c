@@ -116,6 +116,7 @@ static void vdec_poweroff(struct amvdec_session *sess)
 	struct amvdec_ops *vdec_ops = sess->fmt_out->vdec_ops;
 	struct amvdec_codec_ops *codec_ops = sess->fmt_out->codec_ops;
 
+	sess->should_stop = 1;
 	vdec_wait_inactive(sess);
 	if (codec_ops->drain)
 		codec_ops->drain(sess);

@@ -334,6 +334,9 @@ void esparser_queue_all_src(struct work_struct *work)
 
 	mutex_lock(&sess->lock);
 	v4l2_m2m_for_each_src_buf_safe(sess->m2m_ctx, buf, n) {
+		if (sess->should_stop)
+			break;
+
 		if (esparser_queue(sess, &buf->vb) < 0)
 			break;
 	}
