@@ -5,7 +5,7 @@
  */
 
 #include "vdec_platform.h"
-#include "vdec.h"
+#include "meson_vdec.h"
 
 #include "vdec_1.h"
 #include "vdec_hevc.h"

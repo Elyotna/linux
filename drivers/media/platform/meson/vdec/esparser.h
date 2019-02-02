@@ -9,7 +9,7 @@
 
 #include <linux/platform_device.h>
 
-#include "vdec.h"
+#include "meson_vdec.h"
 
 int esparser_init(struct platform_device *pdev, struct amvdec_core *core);
 int esparser_power_up(struct amvdec_session *sess);

@@ -6,7 +6,7 @@
 #ifndef __MESON_VDEC_CODEC_H264_H_
 #define __MESON_VDEC_CODEC_H264_H_
 
-#include "vdec.h"
+#include "meson_vdec.h"
 
 extern struct amvdec_codec_ops codec_h264_ops;
 

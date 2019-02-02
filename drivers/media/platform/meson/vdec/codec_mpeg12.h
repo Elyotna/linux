@@ -7,7 +7,7 @@
 #ifndef __MESON_VDEC_CODEC_MPEG12_H_
 #define __MESON_VDEC_CODEC_MPEG12_H_
 
-#include "vdec.h"
+#include "meson_vdec.h"
 
 extern struct amvdec_codec_ops codec_mpeg12_ops;
 

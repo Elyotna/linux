@@ -18,10 +18,10 @@
 #include <media/v4l2-dev.h>
 #include <media/videobuf2-dma-contig.h>
 
-#include "vdec.h"
+#include "meson_vdec.h"
 #include "esparser.h"
 #include "vdec_helpers.h"
-#include "vdec_ctrls.h"
+#include "meson_vdec_ctrls.h"
 
 struct dummy_buf {
 	struct vb2_v4l2_buffer vb;

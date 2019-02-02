@@ -7,7 +7,7 @@
 #ifndef __MESON_VDEC_PLATFORM_H_
 #define __MESON_VDEC_PLATFORM_H_
 
-#include "vdec.h"
+#include "meson_vdec.h"
 
 struct amvdec_format;
 

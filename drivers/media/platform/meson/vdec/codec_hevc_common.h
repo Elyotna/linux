@@ -7,7 +7,7 @@
 #ifndef __MESON_VDEC_HEVC_COMMON_H_
 #define __MESON_VDEC_HEVC_COMMON_H_
 
-#include "vdec.h"
+#include "meson_vdec.h"
 
 #define PARSER_CMD_SKIP_CFG_0 0x0000090b
 #define PARSER_CMD_SKIP_CFG_1 0x1b14140f

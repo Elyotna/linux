@@ -7,7 +7,7 @@
 #ifndef __MESON_VDEC_HELPERS_H_
 #define __MESON_VDEC_HELPERS_H_
 
-#include "vdec.h"
+#include "meson_vdec.h"
 
 /**
  * amvdec_set_canvases() - Map VB2 buffers to canvases
