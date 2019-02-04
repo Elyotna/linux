@@ -664,7 +664,7 @@ static int vdec_enum_framesizes(struct file *file, void *fh,
 	if (!fmt || fsize->index)
 		return -EINVAL;
 
-	fsize->type = V4L2_FRMSIZE_TYPE_STEPWISE;
+	fsize->type = V4L2_FRMSIZE_TYPE_CONTINUOUS;
 
 	fsize->stepwise.min_width = 256;
 	fsize->stepwise.max_width = fmt->max_width;
@@ -737,16 +737,16 @@ static int vdec_subscribe_event(struct v4l2_fh *fh,
 	}
 }
 
-static int vdec_cropcap(struct file *file, void *fh,
-			struct v4l2_cropcap *crop)
+static int vdec_g_pixelaspect(struct file *file, void *fh, int type,
+			      struct v4l2_fract *f)
 {
 	struct amvdec_session *sess =
 		container_of(file->private_data, struct amvdec_session, fh);
 
-	if (crop->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+	if (type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
 		return -EINVAL;
 
-	crop->pixelaspect = sess->pixelaspect;
+	*f = sess->pixelaspect;
 	return 0;
 }
 
@@ -773,7 +773,7 @@ static const struct v4l2_ioctl_ops vdec_ioctl_ops = {
 	.vidioc_unsubscribe_event = v4l2_event_unsubscribe,
 	.vidioc_try_decoder_cmd = vdec_try_decoder_cmd,
 	.vidioc_decoder_cmd = vdec_decoder_cmd,
-	.vidioc_cropcap = vdec_cropcap,
+	.vidioc_g_pixelaspect = vdec_g_pixelaspect,
 };
 
 static int m2m_queue_init(void *priv, struct vb2_queue *src_vq,
