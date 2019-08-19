@@ -176,6 +176,44 @@ static int set_canvas_nv12m(struct amvdec_session *sess,
 	return 0;
 }
 
+static int set_canvas_nv12(struct amvdec_session *sess,
+			    struct vb2_buffer *vb, u32 width,
+			    u32 height, u32 reg)
+{
+	struct amvdec_core *core = sess->core;
+	u8 canvas_id[NUM_CANVAS_NV12]; /* Y U/V */
+	dma_addr_t buf_paddr_y, buf_paddr_uv;
+	int ret, i;
+
+	for (i = 0; i < NUM_CANVAS_NV12; ++i) {
+		ret = canvas_alloc(sess, &canvas_id[i]);
+		if (ret)
+			return ret;
+	}
+
+	buf_paddr_y = vb2_dma_contig_plane_dma_addr(vb, 0);
+	buf_paddr_uv = buf_paddr_y + amvdec_get_output_size(sess);
+
+	/* Y plane */
+	meson_canvas_config(core->canvas, canvas_id[0], buf_paddr_y,
+			    width, height, MESON_CANVAS_WRAP_NONE,
+			    MESON_CANVAS_BLKMODE_LINEAR,
+			    MESON_CANVAS_ENDIAN_SWAP64);
+
+	/* U/V plane */
+	meson_canvas_config(core->canvas, canvas_id[1], buf_paddr_uv,
+			    width, height / 2, MESON_CANVAS_WRAP_NONE,
+			    MESON_CANVAS_BLKMODE_LINEAR,
+			    MESON_CANVAS_ENDIAN_SWAP64);
+
+	amvdec_write_dos(core, reg,
+			 ((canvas_id[1]) << 16) |
+			 ((canvas_id[1]) << 8)  |
+			 (canvas_id[0]));
+
+	return 0;
+}
+
 int amvdec_set_canvases(struct amvdec_session *sess,
 			u32 reg_base[], u32 reg_num[])
 {
@@ -196,6 +234,12 @@ int amvdec_set_canvases(struct amvdec_session *sess,
 		reg_cur = reg_base[reg_base_cur] + reg_num_cur * 4;
 
 		switch (pixfmt) {
+		case V4L2_PIX_FMT_NV12:
+			ret = set_canvas_nv12(sess, &buf->vb.vb2_buf, width,
+					      height, reg_cur);
+			if (ret)
+				return ret;
+			break;
 		case V4L2_PIX_FMT_NV12M:
 			ret = set_canvas_nv12m(sess, &buf->vb.vb2_buf, width,
 					       height, reg_cur);
@@ -275,6 +319,10 @@ static void dst_buf_done(struct amvdec_session *sess,
 	u32 output_size = amvdec_get_output_size(sess);
 
 	switch (sess->pixfmt_cap) {
+	case V4L2_PIX_FMT_NV12:
+		vbuf->vb2_buf.planes[0].bytesused = output_size +
+						    output_size / 2;
+		break;
 	case V4L2_PIX_FMT_NV12M:
 		vbuf->vb2_buf.planes[0].bytesused = output_size;
 		vbuf->vb2_buf.planes[1].bytesused = output_size / 2;
@@ -288,6 +336,8 @@ static void dst_buf_done(struct amvdec_session *sess,
 		vbuf->vb2_buf.planes[0].bytesused =
 			amvdec_am21c_size(sess->width, sess->height);
 		break;
+	default:
+		dev_err(dev, "Unknown pixfmt %08X\n", sess->pixfmt_cap);
 	}
 
 	vbuf->vb2_buf.timestamp = timestamp;

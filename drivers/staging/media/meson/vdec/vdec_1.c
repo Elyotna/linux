@@ -205,7 +205,8 @@ static int vdec_1_start(struct amvdec_session *sess)
 	amvdec_write_dos(core, ASSIST_MBOX1_MASK, 1);
 
 	/* Enable 2-plane output */
-	if (sess->pixfmt_cap == V4L2_PIX_FMT_NV12M)
+	if (sess->pixfmt_cap == V4L2_PIX_FMT_NV12 ||
+	    sess->pixfmt_cap == V4L2_PIX_FMT_NV12M)
 		amvdec_write_dos_bits(core, MDEC_PIC_DC_CTRL, BIT(17));
 	else
 		amvdec_clear_dos_bits(core, MDEC_PIC_DC_CTRL, BIT(17));
